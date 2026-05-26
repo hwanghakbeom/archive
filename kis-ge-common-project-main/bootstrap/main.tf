@@ -29,8 +29,9 @@ variable "bucket_name" {
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.region
+  project         = var.project_id
+  region          = var.region
+  request_timeout = "30s" # hang 대신 빨리 에러로 떨어지게 — 진단용
 }
 
 # ----------------------------------------------------------------

@@ -96,6 +96,8 @@ bootstrap:network-check:
 # ============================================================
 bootstrap:state-bucket:
   stage: bootstrap
+  variables:
+    TF_LOG: INFO   # 진단용 — 어느 API 호출에서 멈추는지 노출
   before_script:
     - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
     - cd bootstrap

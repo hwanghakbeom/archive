@@ -1,0 +1,41 @@
+#,도메인 (FQDN),공식 API 제목,관련 GCP 서비스,용도,
+1,accesscontextmanager.googleapis.com,Access Context Manager API,VPC Service Control,VPC 서비스 경계/접근 정책 관리,
+2,admin.googleapis.com,Admin SDK API,Cloud Identity,Google Workspace Admin SDK,
+3,agentregistry.googleapis.com,Agent Registry API,Gemini Enterprise,Agent Registry (에이전트 카탈로그),
+4,cloudapiregistry.googleapis.com,Agent Platform API,Gemini Enterprise,API Registry (에이전트용 API 카탈로그),
+5,aiplatform.googleapis.com,Artifact Registry API,Vertex AI / Gemini Enterprise,AI 모델·에이전트 빌드/배포/운영,
+6,artifactregistry.googleapis.com,BigQuery API,Vertex AI Agent Engine,에이전트 컨테이너 이미지 저장소,
+7,bigquery.googleapis.com,BigQuery Storage API,BigQuery,데이터 웨어하우스 쿼리·관리,
+8,bigquerystorage.googleapis.com,Cloud API Registry API,BigQuery,고속 데이터 읽기/쓰기 스토리지 API,
+9,cloudbuild.googleapis.com,Cloud Build API,Cloud Functions Gen2,Cloud Functions 빌드 파이프라인,
+10,eventarc.googleapis.com,Eventarc API,Cloud Functions Gen2,이벤트 라우팅 (GCS 업로드 트리거 등),
+11,cloudfunctions.googleapis.com,Cloud Functions API,Cloud Functions,서버리스 함수 (DLP 트리거 등),
+12,cloudidentity.googleapis.com,Cloud Identity API,Cloud Identity,사용자/그룹/디바이스 중앙 관리,
+13,cloudkms.googleapis.com,Cloud Key Management Service (KMS) API,Cloud KMS,암호화 키 생성/관리,
+14,compute.googleapis.com,Compute Engine API,Compute / LB / Cloud Armor,"VM, 로드밸런서, WAF/DDoS 방어",
+15,dataplex.googleapis.com,Cloud Dataplex API,Knowledge Catalog,데이터 카탈로그/거버넌스 (구 Data Catalog),
+16,discoveryengine.googleapis.com,Discovery Engine API,Gemini Enterprise,엔터프라이즈 검색·에이전트 플랫폼 메인 API,
+17,dlp.googleapis.com,Sensitive Data Protection (DLP),SDP / DLP,민감 데이터 탐색·분류·비식별화,
+18,dns.googleapis.com,Cloud DNS API,Cloud DNS,DNS 권한 서버 관리,
+19,iam.googleapis.com,Identity and Access Management (IAM) API,IAM,사용자/SA 권한 관리,
+20,iamcredentials.googleapis.com,IAM Service Account Credentials API,IAM,Service Account Impersonation/STS,
+21,iap.googleapis.com,Cloud Identity-Aware Proxy API,Cloud IAP,제로 트러스트 ID 기반 접근 제어,
+22,modelarmor.googleapis.com,Model Armor API,Model Armor,LLM 입출력 보안 필터링,
+23,logging.googleapis.com,Cloud Logging API,Cloud Logging,로그 수집/저장/검색,
+24,monitoring.googleapis.com,Cloud Monitoring API,Cloud Monitoring,메트릭/대시보드/알림,
+25,networkservices.googleapis.com,Network Services API,Cloud Load Balancing,LB 고급 기능 (Service Extensions 등),
+26,notebooks.googleapis.com,Notebooks API,Vertex AI Workbench,관리형 Jupyter 노트북,
+27,pubsub.googleapis.com,Cloud Pub/Sub API,Cloud Pub/Sub,"비동기 메시징 (로그 라우팅, 이벤트)",
+28,run.googleapis.com,Cloud Run Admin API,Cloud Run,Cloud Functions Gen2의 실행 런타임,
+29,secretmanager.googleapis.com,Secret Manager API,Secret Manager,API 키/비밀번호/인증서 관리,
+30,securitycenter.googleapis.com,Security Command Center API,Security Command Center,보안 위험 통합 관제,
+31,securitycentermanagement.googleapis.com,Security Center Management API,Security Command Center,SCC 신규 관리 기능,
+32,storage.googleapis.com,Cloud Storage API,Cloud Storage,오브젝트 스토리지 (버킷/파일),
+33,cloudresourcemanager.googleapis.com,Cloud Resource Manager API,GCP 공통,프로젝트 메타데이터 조회,Terraform 동작용
+34,serviceusage.googleapis.com,Service Usage API,GCP 공통,GCP API enable/disable,Terraform 동작용
+35,oauth2.googleapis.com,(공용 OAuth 2.0 토큰 엔드포인트),GCP 인증,OAuth 2.0 토큰 발급,Terraform 동작용
+36,sts.googleapis.com,Security Token Service API,GCP 인증,Security Token Service (WIF 시 필수),Terraform 동작용
+37,accounts.google.com,(공용 Google 계정 엔드포인트),Google 인증,Google 계정 인증,Terraform 동작용
+38,registry.terraform.io,(외부 — HashiCorp Terraform Registry),Terraform Registry,Provider 메타데이터 조회,Terraform 동작용
+39,releases.hashicorp.com,(외부 — HashiCorp Releases),HashiCorp,Terraform 본체 바이너리 다운로드,Terraform 동작용
+40,objects.githubusercontent.com,(외부 — GitHub Releases CDN),GitHub Releases,Provider 실제 바이너리 (registry에서 redirect),Terraform 동작용
