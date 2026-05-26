@@ -79,10 +79,38 @@ bootstrap:network-check:
         timeout 5 bash -c "</dev/tcp/$h/443" && echo "OPEN" || echo "BLOCKED/TIMEOUT";
       done
     - echo ""
-    - echo "=== 4. TLS handshake + HTTP ==="
+    - echo "=== 4. TLS handshake + HTTP GET / ==="
     - for h in oauth2.googleapis.com storage.googleapis.com; do
-        echo "--- https://$h/ ---";
+        echo "--- GET https://$h/ ---";
         curl -sS --max-time 15 -o /dev/null -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n" https://$h/ || echo "  FAILED";
+      done
+    - echo ""
+    - echo "=== 5. POST oauth2.googleapis.com/token (terraform's actual auth call) ==="
+    - echo "--- POST /token (dummy grant) ---"
+    - 'curl -sS --max-time 15
+        -X POST
+        -H "Content-Type: application/x-www-form-urlencoded"
+        -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=dummy"
+        -o /tmp/oauth_resp
+        -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n"
+        https://oauth2.googleapis.com/token || echo "  FAILED (timeout/blocked)"'
+    - echo "--- response body (first 300 chars) ---"
+    - head -c 300 /tmp/oauth_resp 2>/dev/null || echo "  (no body)"
+    - echo ""
+    - echo ""
+    - echo "=== 6. POST storage.googleapis.com (bucket existence test) ==="
+    - echo "--- GET /storage/v1/b/test-nonexistent (unauthenticated) ---"
+    - 'curl -sS --max-time 15
+        -o /tmp/storage_resp
+        -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n"
+        https://storage.googleapis.com/storage/v1/b/test-nonexistent-bucket-12345 || echo "  FAILED"'
+    - head -c 300 /tmp/storage_resp 2>/dev/null || echo "  (no body)"
+    - echo ""
+    - echo ""
+    - echo "=== 7. Other endpoints terraform may hit ==="
+    - for h in cloudresourcemanager.googleapis.com iam.googleapis.com serviceusage.googleapis.com accesscontextmanager.googleapis.com orgpolicy.googleapis.com logging.googleapis.com; do
+        echo -n "GET https://$h/ ... ";
+        curl -sS --max-time 10 -o /dev/null -w "HTTP %{http_code} t:%{time_total}s\n" https://$h/ || echo "FAILED";
       done
   when: manual
   rules:
