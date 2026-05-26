@@ -41,6 +41,9 @@ default:
   before_script:
     - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
     - cd $TF_ROOT
+    # terraform.tfvars 가 gitignore라 CI엔 없음 → example 값으로 fallback.
+    # 로컬에서 만든 tfvars가 커밋되어 있으면 그게 우선 사용됨.
+    - '[ -f terraform.tfvars ] || cp terraform.tfvars.example terraform.tfvars'
     - terraform init
         -backend-config="bucket=$TF_STATE_BUCKET"
         -backend-config="prefix=$TF_STATE_PREFIX"
@@ -218,6 +221,7 @@ validate:
   script:
     - terraform fmt -check -recursive $TF_ROOT
     - cd $TF_ROOT
+    - '[ -f terraform.tfvars ] || cp terraform.tfvars.example terraform.tfvars'
     - terraform init
         -backend-config="bucket=$TF_STATE_BUCKET"
         -backend-config="prefix=$TF_STATE_PREFIX"
