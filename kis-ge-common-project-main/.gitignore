@@ -1,0 +1,8 @@
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!*.tfvars.example
+*.tfplan
+tfplan.binary
+.envrc
+.env

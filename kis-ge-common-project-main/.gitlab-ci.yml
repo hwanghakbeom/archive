@@ -1,0 +1,301 @@
+stages:
+  - validate
+  - plan
+  - vpc-sc          # 01.access-context-manager/* — Access Policy
+  - org-policies    # 02.org-policies/*           — storage / cmek / location / service / iam / domain
+  - observability   # 03.observability/*          — aggregated-log-sink + org-audit-config
+  - scc             # 04.scc/*                    — SCC tier 게이트 + notification config
+  - verify          # 전체 plan no-op
+
+variables:
+  TF_VERSION: "1.9.8"
+  TF_ROOT: iac
+  TF_STATE_BUCKET: kis-common-gcp-tfstate
+  TF_STATE_PREFIX: lzone/org
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ------------------------------------------------------------
+# 공통 템플릿: terraform image + GCS backend init
+# ------------------------------------------------------------
+.tf_template: &tf_template
+  image: hashicorp/terraform:$TF_VERSION
+  before_script:
+    - export GOOGLE_APPLICATION_CREDENTIALS=$GCP_TF_SA_KEY
+    - cd $TF_ROOT
+    - terraform init
+        -backend-config="bucket=$TF_STATE_BUCKET"
+        -backend-config="prefix=$TF_STATE_PREFIX"
+
+# target 지정 apply 공통 스크립트
+.tf_apply_target: &tf_apply_target
+  - terraform plan -input=false -target=$TF_TARGET -out=tfplan.binary
+  - terraform apply -input=false -auto-approve tfplan.binary
+
+# ============================================================
+# MR 단계 (validate + plan)
+# ============================================================
+
+# fmt → init → validate → tflint → tfsec 를 단일 job에서 순차 실행.
+validate:
+  stage: validate
+  image: hashicorp/terraform:$TF_VERSION
+  before_script:
+    - apk add --no-cache curl bash unzip
+    - curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+    - curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+    - export GOOGLE_APPLICATION_CREDENTIALS=$GCP_TF_SA_KEY
+  script:
+    - terraform fmt -check -recursive $TF_ROOT
+    - cd $TF_ROOT
+    - terraform init
+        -backend-config="bucket=$TF_STATE_BUCKET"
+        -backend-config="prefix=$TF_STATE_PREFIX"
+    - terraform validate
+    - tflint --init
+    - tflint --recursive
+    - cd "$CI_PROJECT_DIR"
+    - tfsec $TF_ROOT --minimum-severity HIGH
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+plan:
+  stage: plan
+  <<: *tf_template
+  script:
+    - terraform plan -input=false -out=tfplan.binary
+  artifacts:
+    paths:
+      - $TF_ROOT/tfplan.binary
+    expire_in: 1 week
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ============================================================
+# Stage: vpc-sc (01.access-context-manager/*)
+# ============================================================
+
+# Access Context Manager Access Policy (조직당 1개).
+apply-access-policy:
+  stage: vpc-sc
+  <<: *tf_template
+  variables:
+    TF_TARGET: module.access_policy
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# 통합 Service Perimeter — 모든 자회사 프로젝트 포함.
+# 자회사 추가 시 subsidiary_project_ids 갱신 후 재 apply.
+apply-service-perimeter:
+  stage: vpc-sc
+  <<: *tf_template
+  needs:
+    - job: apply-access-policy
+      optional: true
+  variables:
+    TF_TARGET: module.service_perimeter
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ============================================================
+# Stage: org-policies (02.org-policies/*)
+# ============================================================
+
+# storage.publicAccessPrevention + storage.uniformBucketLevelAccess.
+apply-storage-policies:
+  stage: org-policies
+  <<: *tf_template
+  needs:
+    - job: apply-service-perimeter
+      optional: true
+  variables:
+    TF_TARGET: module.storage_policies
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# gcp.restrictNonCmekServices (기본 비활성 toggle).
+apply-cmek-policies:
+  stage: org-policies
+  <<: *tf_template
+  needs:
+    - job: apply-storage-policies
+      optional: true
+  variables:
+    TF_TARGET: module.cmek_policies
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# gcp.resourceLocations (한국 데이터 주권).
+apply-location-policies:
+  stage: org-policies
+  <<: *tf_template
+  needs:
+    - job: apply-cmek-policies
+      optional: true
+  variables:
+    TF_TARGET: module.location_policies
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# gcp.restrictServiceUsage (허용 API 화이트리스트).
+apply-service-restriction-policies:
+  stage: org-policies
+  <<: *tf_template
+  needs:
+    - job: apply-location-policies
+      optional: true
+  variables:
+    TF_TARGET: module.service_restriction_policies
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# iam.disable* (SA key / cross-project / auto-grants).
+apply-iam-policies:
+  stage: org-policies
+  <<: *tf_template
+  needs:
+    - job: apply-service-restriction-policies
+      optional: true
+  variables:
+    TF_TARGET: module.iam_policies
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# iam.allowedPolicyMemberDomains — ⚠️ PLAN-ONLY (mz.co.kr lock 위험).
+plan-domain-policies:
+  stage: org-policies
+  <<: *tf_template
+  needs:
+    - job: apply-iam-policies
+      optional: true
+  script:
+    - terraform plan -input=false -target=module.domain_policies
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ============================================================
+# Stage: observability (03.observability/*)
+# ============================================================
+
+# Organization log sink + 중앙 audit GCS bucket.
+apply-aggregated-sink:
+  stage: observability
+  <<: *tf_template
+  needs:
+    - job: plan-domain-policies
+      optional: true
+  variables:
+    TF_TARGET: module.aggregated_log_sink
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# google_organization_iam_audit_config (DATA_READ/WRITE 강제, 비용 영향).
+apply-org-audit-config:
+  stage: observability
+  <<: *tf_template
+  needs:
+    - job: apply-aggregated-sink
+      optional: true
+  variables:
+    TF_TARGET: module.org_audit_config
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# DLP Discovery (조직 레벨). SCC Premium tier 사전 활성화 필수.
+# enable_dlp_discovery=false 기본 → 자원 0개.
+apply-dlp-discovery:
+  stage: observability
+  <<: *tf_template
+  needs:
+    - job: apply-org-audit-config
+      optional: true
+  variables:
+    TF_TARGET: module.dlp_discovery
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ============================================================
+# Stage: scc (04.scc/*)
+# ============================================================
+
+# SCC Premium/Enterprise tier 활성화 확인 게이트 (수동).
+enable-scc-tier:
+  stage: scc
+  image: alpine:3
+  needs:
+    - job: apply-org-audit-config
+      optional: true
+  script:
+    - |
+      cat <<'MSG'
+      ==> SCC Premium/Enterprise tier 활성화 확인 단계
+
+      수동 작업:
+        1. GCP Console - Security - Security Command Center - Settings
+        2. Tier - Activate Premium 또는 Activate Enterprise 클릭
+        3. Billing account 연결 및 비용 승인
+        4. (선택) ETD / Attack Path / Mandiant 설정 확인
+
+      활성화 완료 후 terraform.tfvars 에서 enable_phase6 = true 로 변경 후
+      main 에 push, 이 job 통과시키면 apply-scc-notifications 진행 가능.
+
+      필요 권한: roles/securitycenter.admin (org) + roles/billing.user
+      MSG
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# SCC notification config + PubSub topic (Premium tier 전제).
+apply-scc-notifications:
+  stage: scc
+  <<: *tf_template
+  needs:
+    - job: enable-scc-tier
+      optional: true
+  variables:
+    TF_TARGET: module.scc_notifications
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ============================================================
+# Stage: verify — 전체 plan no-op
+# ============================================================
+apply-verify:
+  stage: verify
+  <<: *tf_template
+  needs:
+    - job: apply-scc-notifications
+      optional: true
+  script:
+    - terraform plan -input=false
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
