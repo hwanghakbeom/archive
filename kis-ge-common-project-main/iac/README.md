@@ -43,7 +43,7 @@ iac/
 
 기존 자회사 stack용 SA와 **분리된** 별도 SA를 권장.
 
-권장 SA: `org-foundation-tf@kis-common-gcp.iam.gserviceaccount.com`
+권장 SA: `org-foundation-tf@kis-gemini-common.iam.gserviceaccount.com`
 
 조직 IAM 권한:
 
@@ -55,7 +55,7 @@ roles/iam.securityAdmin                    # Phase 3-B
 roles/securitycenter.admin                 # (옵션) SCC 활성화 시
 ```
 
-ops 프로젝트(`kis-common-gcp`) 권한:
+ops 프로젝트(`kis-gemini-common`) 권한:
 
 ```
 roles/storage.admin                        # state bucket access (GCS backend)
@@ -71,14 +71,14 @@ roles/serviceusage.serviceUsageConsumer    # API 호출 (user_project_override)
 | Key | Value | Type | Protected | Masked |
 |---|---|---|---|---|
 | `GCP_TF_SA_KEY` | 위 SA의 JSON 키 | **File** | ✓ | ✓ |
-| `GCP_TF_PROJECT` | `kis-common-gcp` | Variable | ✓ | – |
+| `GCP_TF_PROJECT` | `kis-gemini-common` | Variable | ✓ | – |
 
 ### 3. State Backend
 
 기존 자회사 stack과 같은 bucket, 다른 prefix:
 
 ```
-gs://kis-common-gcp-tfstate/lzone/org/default.tfstate
+gs://kis-gemini-common-tfstate/lzone/org/default.tfstate
 ```
 
 ## 첫 배포 절차
@@ -102,11 +102,11 @@ gs://kis-common-gcp-tfstate/lzone/org/default.tfstate
 4. **outputs 확인**:
    ```bash
    cd iac
-   terraform init -backend-config="bucket=kis-common-gcp-tfstate" \
+   terraform init -backend-config="bucket=kis-gemini-common-tfstate" \
                   -backend-config="prefix=lzone/org"
    terraform output
    # access_policy_id = "123456789"
-   # central_audit_bucket = "kis-common-gcp-org-audit-logs"
+   # central_audit_bucket = "kis-gemini-common-org-audit-logs"
    # ...
    ```
 
@@ -120,7 +120,7 @@ Access Policy를 참조하도록 수정:
 data "terraform_remote_state" "org" {
   backend = "gcs"
   config = {
-    bucket = "kis-common-gcp-tfstate"
+    bucket = "kis-gemini-common-tfstate"
     prefix = "lzone/org"
   }
 }

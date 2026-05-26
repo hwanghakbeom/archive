@@ -10,7 +10,7 @@ stages:
 variables:
   TF_VERSION: "1.14.6"
   TF_ROOT: iac
-  TF_STATE_BUCKET: kis-common-gcp-tfstate
+  TF_STATE_BUCKET: kis-gemini-common-tfstate
   TF_STATE_PREFIX: lzone/org
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
