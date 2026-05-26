@@ -6,10 +6,21 @@ provider "google" {
   # x-goog-user-project 헤더가 필요한 API가 있어 user_project_override = true.
   user_project_override = true
   billing_project       = var.billing_project
+
+  # userinfo.email scope 필수 — provider가 토큰 검증 시 호출.
+  scopes = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+  ]
 }
 
 provider "google-beta" {
   region                = var.region_primary
   user_project_override = true
   billing_project       = var.billing_project
+
+  scopes = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+  ]
 }

@@ -32,6 +32,12 @@ provider "google" {
   project         = var.project_id
   region          = var.region
   request_timeout = "30s" # hang 대신 빨리 에러로 떨어지게 — 진단용
+  # userinfo.email scope 필수 — google provider가 토큰 검증 시 호출.
+  # 기본 cloud-platform scope만으로는 "error retrieving userinfo" 발생.
+  scopes = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+  ]
 }
 
 # ----------------------------------------------------------------
