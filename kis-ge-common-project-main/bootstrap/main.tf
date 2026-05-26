@@ -38,6 +38,9 @@ provider "google" {
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
   ]
+  # www.googleapis.com 이 allowlist에 없어 userinfo 호출이 hang됨.
+  # 이 라벨은 사용자 식별용이고 기능에 영향 없음 → 끄면 userinfo 호출 skip.
+  add_terraform_attribution_label = false
 }
 
 # ----------------------------------------------------------------

@@ -12,6 +12,8 @@ provider "google" {
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
   ]
+  # www.googleapis.com allowlist 추가 전 임시 우회 — userinfo 호출 skip.
+  add_terraform_attribution_label = false
 }
 
 provider "google-beta" {
@@ -23,4 +25,5 @@ provider "google-beta" {
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
   ]
+  add_terraform_attribution_label = false
 }
