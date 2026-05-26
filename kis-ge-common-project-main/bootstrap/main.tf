@@ -34,16 +34,13 @@ provider "google" {
 }
 
 # ----------------------------------------------------------------
-# SA 인증 + 프로젝트 접근 검증
+# SA 인증 검증
 # google_client_config 가 토큰 발급을 시도하므로, oauth 실패 시
 # plan 단계에서 즉시 에러로 노출됨.
-# google_project 가 프로젝트 metadata를 조회하므로, 권한/존재 검증도 동시.
+# 프로젝트 접근/권한은 google_storage_bucket 생성 성공 자체로 검증됨
+# (data.google_project 는 roles/browser 필요 → 제거).
 # ----------------------------------------------------------------
 data "google_client_config" "current" {}
-
-data "google_project" "current" {
-  project_id = var.project_id
-}
 
 # ----------------------------------------------------------------
 # Terraform state bucket
@@ -76,11 +73,10 @@ resource "google_storage_bucket" "tfstate" {
 # Outputs — CI 로그에서 결과 확인
 # ----------------------------------------------------------------
 output "sa_verification" {
-  description = "SA 인증/프로젝트 접근 검증 결과 (값이 출력되면 성공)"
+  description = "SA 인증 검증 (값이 출력되면 토큰 발급 성공)"
   value = {
-    project_id     = data.google_project.current.project_id
-    project_number = data.google_project.current.number
-    project_name   = data.google_project.current.name
+    project_id = data.google_client_config.current.project
+    region     = data.google_client_config.current.region
   }
 }
 
