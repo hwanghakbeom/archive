@@ -6,7 +6,7 @@ variable "org_id" {
 
 # === Provider routing ===
 variable "billing_project" {
-  description = "user_project_override 용 billing/quota 프로젝트. ops 프로젝트(kis-gemini-common) 권장."
+  description = "user_project_override 용 billing/quota 프로젝트. ops 프로젝트(kis-gemini-common-prod) 권장."
   type        = string
 }
 
@@ -111,14 +111,14 @@ variable "cmek_required_services" {
 
 # === Phase 3: Aggregated Log Sink ===
 variable "ops_project_id" {
-  description = "중앙 audit bucket이 위치할 ops 프로젝트 ID (예: kis-gemini-common)."
+  description = "중앙 audit bucket이 위치할 ops 프로젝트 ID (예: kis-gemini-common-prod)."
   type        = string
 }
 
 variable "central_audit_bucket_name" {
   description = "중앙 audit 로그 GCS bucket 이름. 글로벌 유니크."
   type        = string
-  default     = "kis-gemini-common-org-audit-logs"
+  default     = "kis-gemini-common-prod-org-audit-logs"
 }
 
 variable "retention_days" {

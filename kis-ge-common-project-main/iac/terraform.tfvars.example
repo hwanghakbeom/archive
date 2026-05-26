@@ -6,7 +6,7 @@
 
 # === Org identity ===
 org_id          = "240369219899"
-billing_project = "kis-gemini-common"
+billing_project = "kis-gemini-common-prod"
 region_primary  = "asia-northeast3"
 
 # === Phase 1-A: Access Context Manager Access Policy ===
@@ -49,8 +49,8 @@ cmek_required_services = [
 ]
 
 # === Phase 3: Aggregated Log Sink ===
-ops_project_id            = "kis-gemini-common"
-central_audit_bucket_name = "kis-gemini-common-org-audit-logs"
+ops_project_id            = "kis-gemini-common-prod"
+central_audit_bucket_name = "kis-gemini-common-prod-org-audit-logs"
 retention_days            = 2555
 lock_retention            = false
 aggregated_sink_name      = "krinvest-org-audit-to-gcs"

@@ -11,7 +11,7 @@ stages:
 variables:
   TF_VERSION: "1.14.6"
   TF_ROOT: iac
-  TF_STATE_BUCKET: kis-gemini-common-tfstate
+  TF_STATE_BUCKET: kis-gemini-common-prod-tfstate
   TF_STATE_PREFIX: lzone/org
   TF_IN_AUTOMATION: "true"
   TF_INPUT: "false"
@@ -37,7 +37,7 @@ default:
 # ------------------------------------------------------------
 .tf_template: &tf_template
   before_script:
-    - export GOOGLE_CREDENTIALS="$GCP_TF_SA_KEY"
+    - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
     - cd $TF_ROOT
     - terraform init
         -backend-config="bucket=$TF_STATE_BUCKET"
@@ -50,7 +50,7 @@ default:
 
 # ============================================================
 # Bootstrap (1회성, 수동)
-# - State bucket (kis-gemini-common-tfstate) 생성
+# - State bucket (kis-gemini-common-prod-tfstate) 생성
 # - SA 키 인증 + 프로젝트 접근 검증 (google_client_config / google_project
 #   data source가 토큰 발급 시도 — 실패 시 plan 단계에서 즉시 에러 노출)
 # 로컬 state 사용 → CI artifact 로 30일 보존. 재실행 시 terraform import 필요.
@@ -58,7 +58,7 @@ default:
 bootstrap:state-bucket:
   stage: bootstrap
   before_script:
-    - export GOOGLE_CREDENTIALS="$GCP_TF_SA_KEY"
+    - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
     - cd bootstrap
   script:
     - terraform init -input=false
@@ -101,7 +101,7 @@ validate:
       fi
     - curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
     - curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-    - export GOOGLE_CREDENTIALS="$GCP_TF_SA_KEY"
+    - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
   script:
     - terraform fmt -check -recursive $TF_ROOT
     - cd $TF_ROOT

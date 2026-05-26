@@ -12,7 +12,7 @@ terraform {
 
 variable "project_id" {
   type        = string
-  default     = "kis-gemini-common"
+  default     = "kis-gemini-common-prod"
   description = "ops/공용 GCP 프로젝트"
 }
 
@@ -24,7 +24,7 @@ variable "region" {
 
 variable "bucket_name" {
   type        = string
-  default     = "kis-gemini-common-tfstate"
+  default     = "kis-gemini-common-prod-tfstate"
   description = "Terraform state bucket"
 }
 
