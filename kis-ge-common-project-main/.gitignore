@@ -4,5 +4,7 @@
 !*.tfvars.example
 *.tfplan
 tfplan.binary
+*.tfstate
+*.tfstate.backup
 .envrc
 .env

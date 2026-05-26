@@ -1,4 +1,5 @@
 stages:
+  - bootstrap      # 1회성: state bucket 생성 + SA 검증
   - validate
   - plan
   - vpc-sc          # 01.access-context-manager/* — Access Policy
@@ -46,6 +47,34 @@ default:
 .tf_apply_target: &tf_apply_target
   - terraform plan -input=false -target=$TF_TARGET -out=tfplan.binary
   - terraform apply -input=false -auto-approve tfplan.binary
+
+# ============================================================
+# Bootstrap (1회성, 수동)
+# - State bucket (kis-gemini-common-tfstate) 생성
+# - SA 키 인증 + 프로젝트 접근 검증 (google_client_config / google_project
+#   data source가 토큰 발급 시도 — 실패 시 plan 단계에서 즉시 에러 노출)
+# 로컬 state 사용 → CI artifact 로 30일 보존. 재실행 시 terraform import 필요.
+# ============================================================
+bootstrap:state-bucket:
+  stage: bootstrap
+  before_script:
+    - export GOOGLE_CREDENTIALS="$GCP_TF_SA_KEY"
+    - cd bootstrap
+  script:
+    - terraform init -input=false
+    - terraform plan -input=false
+    - terraform apply -input=false -auto-approve
+    - terraform output
+  artifacts:
+    when: always
+    paths:
+      - bootstrap/terraform.tfstate
+      - bootstrap/terraform.tfstate.backup
+    expire_in: 30 days
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ============================================================
 # MR 단계 (validate + plan)
