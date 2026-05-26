@@ -112,6 +112,14 @@ bootstrap:network-check:
         echo -n "GET https://$h/ ... ";
         curl -sS --max-time 10 -o /dev/null -w "HTTP %{http_code} t:%{time_total}s\n" https://$h/ || echo "FAILED";
       done
+    - echo ""
+    - echo "=== 8. www.googleapis.com — userinfo / oauth2 helper (provider validates here) ==="
+    - echo "--- GET https://www.googleapis.com/ ---"
+    - 'curl -sS --max-time 15 -o /dev/null -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n" https://www.googleapis.com/ || echo "  FAILED"'
+    - echo "--- GET https://www.googleapis.com/oauth2/v3/userinfo (no auth) ---"
+    - 'curl -sS --max-time 15 -o /tmp/userinfo_resp -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n" https://www.googleapis.com/oauth2/v3/userinfo || echo "  FAILED"'
+    - head -c 300 /tmp/userinfo_resp 2>/dev/null || echo "  (no body)"
+    - echo ""
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
