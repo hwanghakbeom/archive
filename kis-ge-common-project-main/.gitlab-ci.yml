@@ -36,7 +36,7 @@ default:
 # ------------------------------------------------------------
 .tf_template: &tf_template
   before_script:
-    - export GOOGLE_APPLICATION_CREDENTIALS=$GCP_TF_SA_KEY
+    - export GOOGLE_CREDENTIALS="$GCP_TF_SA_KEY"
     - cd $TF_ROOT
     - terraform init
         -backend-config="bucket=$TF_STATE_BUCKET"
@@ -72,7 +72,7 @@ validate:
       fi
     - curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
     - curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-    - export GOOGLE_APPLICATION_CREDENTIALS=$GCP_TF_SA_KEY
+    - export GOOGLE_CREDENTIALS="$GCP_TF_SA_KEY"
   script:
     - terraform fmt -check -recursive $TF_ROOT
     - cd $TF_ROOT
