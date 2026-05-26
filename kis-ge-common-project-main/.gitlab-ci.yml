@@ -129,6 +129,17 @@ bootstrap:state-bucket:
   variables:
     TF_LOG: INFO   # 진단용 — 어느 API 호출에서 멈추는지 노출
   before_script:
+    # ── Variable visibility check — Group/Project/Protected/Environment 진단 ──
+    - |
+      echo "=== Variable visibility ==="
+      echo "  CI_PROJECT_PATH      : $CI_PROJECT_PATH"
+      echo "  CI_COMMIT_REF_NAME   : $CI_COMMIT_REF_NAME"
+      echo "  CI_COMMIT_REF_PROTECTED : $CI_COMMIT_REF_PROTECTED"
+      echo "  CI_ENVIRONMENT_NAME  : ${CI_ENVIRONMENT_NAME:-<none>}"
+      echo "  variable length      : ${#kis_gemini_common_prod_iac_key}"
+      echo "  similar env vars (masked):"
+      env | grep -i "kis_gemini\|iac_key" | sed 's/=.*$/=<masked>/' | sed 's/^/    /' || echo "    (none)"
+      echo "==========================="
     - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
     # ── SA 키 sanity check (terraform 돌리기 전에 JSON 파싱 가능한지 확인) ──
     - |
