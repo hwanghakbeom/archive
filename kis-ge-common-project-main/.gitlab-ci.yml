@@ -8,7 +8,7 @@ stages:
   - verify          # 전체 plan no-op
 
 variables:
-  TF_VERSION: "1.9.8"
+  TF_VERSION: "1.14.6"
   TF_ROOT: iac
   TF_STATE_BUCKET: kis-common-gcp-tfstate
   TF_STATE_PREFIX: lzone/org
@@ -19,12 +19,20 @@ workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'        # GitLab UI 수동 실행
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'   # 스케줄
+    - when: never
+
+default:
+  image: hashicorp/terraform:$TF_VERSION
+  tags:
+    - docker          # runner #159 (mTVqFd9H) — docker executor
 
 # ------------------------------------------------------------
-# 공통 템플릿: terraform image + GCS backend init
+# 공통 템플릿: GCS backend init
+# image / tags 는 default 에서 상속.
 # ------------------------------------------------------------
 .tf_template: &tf_template
-  image: hashicorp/terraform:$TF_VERSION
   before_script:
     - export GOOGLE_APPLICATION_CREDENTIALS=$GCP_TF_SA_KEY
     - cd $TF_ROOT
@@ -44,7 +52,6 @@ workflow:
 # fmt → init → validate → tflint → tfsec 를 단일 job에서 순차 실행.
 validate:
   stage: validate
-  image: hashicorp/terraform:$TF_VERSION
   before_script:
     - apk add --no-cache curl bash unzip
     - curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
