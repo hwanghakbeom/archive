@@ -1,0 +1,7 @@
+# Separate repo (pushed to hwanghakbeom/archive2).
+kis-ge-project-main/
+
+# Reference files not part of the stack.
+api.csv
+.DS_Store
+*.zip
