@@ -44,8 +44,11 @@ default:
 # ------------------------------------------------------------
 # 공통 템플릿: GCS backend init
 # image / tags 는 default 에서 상속.
+# needs: [] → stage 순서 무시, 모든 apply job을 아무 때나 독립 클릭 가능.
+# (단, 같은 state라 동시 실행은 금지 — 하나씩 수동 실행)
 # ------------------------------------------------------------
 .tf_template: &tf_template
+  needs: []
   before_script:
     - mkdir -p "$TF_PLUGIN_CACHE_DIR"
     - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
