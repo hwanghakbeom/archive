@@ -641,7 +641,9 @@ apply-dlp-discovery:
 # SCC Premium/Enterprise tier 활성화 확인 게이트 (수동).
 enable-scc-tier:
   stage: scc
-  image: alpine:3
+  # alpine:3(Docker Hub) override 제거 — runner가 Docker Hub 차단됨.
+  # default ECR 이미지 상속 (echo만 하므로 아무 이미지나 OK).
+  needs: []
   script:
     - |
       cat <<'MSG'
