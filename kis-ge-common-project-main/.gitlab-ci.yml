@@ -71,116 +71,6 @@ default:
   - terraform apply -input=false -auto-approve tfplan.binary
 
 # ============================================================
-# 현재 진행 상황 확인 (read-only, 가벼움)
-# terraform state list = state에 기록된(=이미 적용된) 자원 목록만 출력.
-# refresh/plan 안 하므로 GCP API 자원별 호출 없음 → 빠름.
-# 목록에 있으면 "완료", 없으면 "안 함".
-# ============================================================
-show-state:
-  stage: vpc-sc
-  <<: *tf_template
-  script:
-    - echo "=== state에 기록된 자원 (= 이미 적용 완료) ==="
-    - terraform state list || echo "  (state 비어있음 — 아직 아무것도 apply 안 함)"
-  when: manual
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-
-# ============================================================
-# VPC-SC perimeter 실체 확인 (read-only)
-# org의 access policy + perimeter 목록/설정을 SA로 조회.
-# 어떤 perimeter가 어떤 프로젝트를 보호하는지, enforce/dry-run인지 확인.
-# ============================================================
-perimeter-inspect:
-  stage: vpc-sc
-  needs: []
-  before_script:
-    - |
-      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
-      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
-      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
-      tar -xzf /tmp/gcloud.tar.gz -C /tmp
-      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
-      gcloud auth activate-service-account --key-file=/tmp/sa.json
-  script:
-    - export PATH="/tmp/google-cloud-sdk/bin:$PATH"
-    - |
-      echo "=== Access Policy 목록 ==="
-      gcloud access-context-manager policies list --organization=457872813001 \
-        --format="table(name,title)" || echo "  (조회 실패)"
-      POLICY=$(gcloud access-context-manager policies list --organization=457872813001 --format="value(name)" | head -1)
-      echo "  POLICY=$POLICY"
-      if [ -z "$POLICY" ]; then echo "  Access Policy 없음 → perimeter도 없음"; exit 0; fi
-
-      echo ""
-      echo "=== Perimeter 목록 ==="
-      gcloud access-context-manager perimeters list --policy="$POLICY" \
-        --format="table(name,title,perimeterType)" || echo "  (perimeter 없음)"
-
-      echo ""
-      echo "=== Perimeter 상세 (보호 프로젝트 / enforce 여부) ==="
-      for P in $(gcloud access-context-manager perimeters list --policy="$POLICY" --format="value(name)"); do
-        echo "--- $P ---"
-        gcloud access-context-manager perimeters describe "$P" --policy="$POLICY"
-        echo ""
-      done
-  when: manual
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-
-# ============================================================
-# ⚠️⚠️ VPC-SC perimeter 비활성화 (DESTRUCTIVE, 수동)
-# perimeter를 삭제해 enforcement 제거 → 외부 runner가 보호 프로젝트 접근 가능.
-# 삭제 전 describe로 전체 config를 로그에 기록 (복구용).
-# 조직 보안 통제 제거이므로 perimeter-inspect로 확인 후, 신중히 실행.
-# 안전장치: CONFIRM_DISABLE=yes 변수를 줘야 실제 삭제됨.
-# ============================================================
-perimeter-disable:
-  stage: vpc-sc
-  needs: []
-  before_script:
-    - |
-      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
-      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
-      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
-      tar -xzf /tmp/gcloud.tar.gz -C /tmp
-      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
-      gcloud auth activate-service-account --key-file=/tmp/sa.json
-  script:
-    - export PATH="/tmp/google-cloud-sdk/bin:$PATH"
-    - |
-      POLICY=$(gcloud access-context-manager policies list --organization=457872813001 --format="value(name)" | head -1)
-      if [ -z "$POLICY" ]; then echo "Access Policy 없음 → perimeter 없음, 할 일 없음"; exit 0; fi
-      PERIMETERS=$(gcloud access-context-manager perimeters list --policy="$POLICY" --format="value(name)")
-      if [ -z "$PERIMETERS" ]; then echo "perimeter 없음 → 할 일 없음"; exit 0; fi
-
-      echo "=== 삭제 전 config 백업 기록 (복구용) ==="
-      for P in $PERIMETERS; do
-        echo "--- $P ---"
-        gcloud access-context-manager perimeters describe "$P" --policy="$POLICY"
-        echo ""
-      done
-
-      if [ "${CONFIRM_DISABLE:-}" != "yes" ]; then
-        echo "⚠️ CONFIRM_DISABLE=yes 가 아니라서 삭제 안 함 (dry-run)."
-        echo "   실제로 disable하려면 job 실행 시 변수 CONFIRM_DISABLE=yes 추가."
-        exit 0
-      fi
-
-      echo "=== perimeter 삭제 (disable) ==="
-      for P in $PERIMETERS; do
-        echo "deleting $P ..."
-        gcloud access-context-manager perimeters delete "$P" --policy="$POLICY" --quiet \
-          && echo "  ✅ 삭제됨" || echo "  ❌ 삭제 실패"
-      done
-  when: manual
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-
-# ============================================================
 # State lock 강제 해제 (stale lock 정리용, 수동)
 # ⚠️ 다른 apply가 실제 실행 중이 아닐 때만 사용. hang/취소된 run이 남긴
 # default.tflock 을 삭제. 잘못 쓰면 state 손상 위험 → 꼭 단독 실행 확인 후.
@@ -203,81 +93,6 @@ unlock-state:
       else
         echo "  (lock 파일 없음 — 이미 해제됨)"
       fi
-  when: manual
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-
-# ============================================================
-# Bootstrap 진단 (network 연결 점검)
-# Google API 도달성 + DNS + TLS handshake 확인. 막혔으면 인프라팀에 요청.
-# ============================================================
-bootstrap:network-check:
-  stage: bootstrap
-  before_script:
-    - |
-      if command -v apt-get >/dev/null 2>&1; then
-        apt-get update -qq && apt-get install -y --no-install-recommends curl ca-certificates dnsutils >/dev/null
-      elif command -v apk >/dev/null 2>&1; then
-        apk add --no-cache curl ca-certificates bind-tools >/dev/null
-      fi
-  script:
-    - echo "=== 1. Proxy environment variables ==="
-    - env | grep -i proxy || echo "  (none)"
-    - echo ""
-    - echo "=== 2. DNS resolution ==="
-    - for h in oauth2.googleapis.com storage.googleapis.com cloudresourcemanager.googleapis.com; do
-        echo "--- $h ---";
-        getent hosts $h 2>&1 || nslookup $h 2>&1 || echo "FAIL";
-      done
-    - echo ""
-    - echo "=== 3. TCP port 443 ==="
-    - for h in oauth2.googleapis.com storage.googleapis.com; do
-        echo -n "$h:443 ... ";
-        timeout 5 bash -c "</dev/tcp/$h/443" && echo "OPEN" || echo "BLOCKED/TIMEOUT";
-      done
-    - echo ""
-    - echo "=== 4. TLS handshake + HTTP GET / ==="
-    - for h in oauth2.googleapis.com storage.googleapis.com; do
-        echo "--- GET https://$h/ ---";
-        curl -sS --max-time 15 -o /dev/null -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n" https://$h/ || echo "  FAILED";
-      done
-    - echo ""
-    - echo "=== 5. POST oauth2.googleapis.com/token (terraform's actual auth call) ==="
-    - echo "--- POST /token (dummy grant) ---"
-    - 'curl -sS --max-time 15
-        -X POST
-        -H "Content-Type: application/x-www-form-urlencoded"
-        -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=dummy"
-        -o /tmp/oauth_resp
-        -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n"
-        https://oauth2.googleapis.com/token || echo "  FAILED (timeout/blocked)"'
-    - echo "--- response body (first 300 chars) ---"
-    - head -c 300 /tmp/oauth_resp 2>/dev/null || echo "  (no body)"
-    - echo ""
-    - echo ""
-    - echo "=== 6. POST storage.googleapis.com (bucket existence test) ==="
-    - echo "--- GET /storage/v1/b/test-nonexistent (unauthenticated) ---"
-    - 'curl -sS --max-time 15
-        -o /tmp/storage_resp
-        -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n"
-        https://storage.googleapis.com/storage/v1/b/test-nonexistent-bucket-12345 || echo "  FAILED"'
-    - head -c 300 /tmp/storage_resp 2>/dev/null || echo "  (no body)"
-    - echo ""
-    - echo ""
-    - echo "=== 7. Other endpoints terraform may hit ==="
-    - for h in cloudresourcemanager.googleapis.com iam.googleapis.com serviceusage.googleapis.com accesscontextmanager.googleapis.com orgpolicy.googleapis.com logging.googleapis.com; do
-        echo -n "GET https://$h/ ... ";
-        curl -sS --max-time 10 -o /dev/null -w "HTTP %{http_code} t:%{time_total}s\n" https://$h/ || echo "FAILED";
-      done
-    - echo ""
-    - echo "=== 8. www.googleapis.com — userinfo / oauth2 helper (provider validates here) ==="
-    - echo "--- GET https://www.googleapis.com/ ---"
-    - 'curl -sS --max-time 15 -o /dev/null -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n" https://www.googleapis.com/ || echo "  FAILED"'
-    - echo "--- GET https://www.googleapis.com/oauth2/v3/userinfo (no auth) ---"
-    - 'curl -sS --max-time 15 -o /tmp/userinfo_resp -w "  HTTP %{http_code}  TLS:%{time_connect}s  total:%{time_total}s\n" https://www.googleapis.com/oauth2/v3/userinfo || echo "  FAILED"'
-    - head -c 300 /tmp/userinfo_resp 2>/dev/null || echo "  (no body)"
-    - echo ""
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
@@ -406,80 +221,6 @@ plan:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
-# ============================================================
-# Stage: vpc-sc (01.access-context-manager/*)
-# ============================================================
-
-# SA의 org 레벨 권한 검증 (read-only). apply 전에 권한 있는지 확인용.
-# gcloud SDK를 storage.googleapis.com(allowlist에 있음)에서 받아 SA로 인증 후
-# ACM policy list 시도 → 성공하면 권한 OK, 403이면 org 권한 미부여.
-verify-sa-org-perms:
-  stage: vpc-sc
-  script:
-    - |
-      set -e
-      echo "=== 0. 변수 타입 감지 + SA 키 추출 ==="
-      echo "  raw length: ${#kis_gemini_common_prod_iac_key}"
-      if [ -f "$kis_gemini_common_prod_iac_key" ]; then
-        echo "  → File 타입 (path=$kis_gemini_common_prod_iac_key)"
-        cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json
-      else
-        echo "  → Variable 타입(content) 또는 빈 값"
-        printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json
-      fi
-      echo "  /tmp/sa.json size: $(wc -c < /tmp/sa.json) bytes"
-      if [ ! -s /tmp/sa.json ]; then
-        echo "  ❌ SA 키가 비어있음 — 변수가 이 job에 주입 안 됨 (Protected/Environment scope 또는 변수명 오타)"
-        exit 1
-      fi
-
-      echo ""
-      echo "=== 1. SA email ==="
-      SA_EMAIL=$(python3 -c "import json; print(json.load(open('/tmp/sa.json'))['client_email'])")
-      echo "  $SA_EMAIL"
-
-      echo ""
-      echo "=== 2. gcloud SDK 다운로드 (storage.googleapis.com, allowlist) ==="
-      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
-      curl -sSL -o /tmp/gcloud.tar.gz \
-        "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
-      tar -xzf /tmp/gcloud.tar.gz -C /tmp
-      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
-      gcloud version | head -1
-
-      echo ""
-      echo "=== 3. SA 인증 ==="
-      gcloud auth activate-service-account --key-file=/tmp/sa.json
-
-      echo ""
-      echo "=== 3-1. ⭐ SA가 속한 진짜 org ID 탐색 ==="
-      SA_PROJECT=$(python3 -c "import json; print(json.load(open('/tmp/sa.json'))['project_id'])")
-      echo "  SA project_id: $SA_PROJECT"
-      echo "  --- 이 프로젝트의 ancestry (최상단이 org) ---"
-      gcloud projects get-ancestors "$SA_PROJECT" 2>&1 || echo "  (get-ancestors 실패)"
-      echo "  --- SA가 볼 수 있는 organization 목록 ---"
-      gcloud organizations list --format="table(displayName,ID)" 2>&1 || echo "  (organizations list 실패 — org viewer 권한 없을 수 있음)"
-      echo "  ⮕ 위 org ID가 terraform org_id (현재 457872813001)와 다르면 그게 403 원인"
-
-      echo ""
-      echo "=== 4. org IAM에서 이 SA의 역할 조회 (현재 설정 org 457872813001) ==="
-      gcloud organizations get-iam-policy 457872813001 \
-        --flatten="bindings[].members" \
-        --filter="bindings.members:serviceAccount:${SA_EMAIL}" \
-        --format="table(bindings.role)" || echo "  (조회 실패 — 이 org에 권한 없거나 다른 org임)"
-
-      echo ""
-      echo "=== 5. ACM policy list 시도 (현재 설정 org 457872813001) ==="
-      if gcloud access-context-manager policies list --organization=457872813001; then
-        echo "  ✅ 457872813001에 accesscontextmanager 권한 OK"
-      else
-        echo "  ❌ 403 — 457872813001엔 권한 없음 (org ID가 틀렸거나 권한 미부여)"
-      fi
-  when: manual
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
-
 # 필수 GCP API 활성화 (1회). 다른 apply job 전에 먼저 실행.
 # depends_on 제거로 각 apply job이 10개 서비스를 매번 처리하지 않음 → 속도↑.
 apply-services:
@@ -496,11 +237,12 @@ apply-services:
 # Access Context Manager Access Policy (조직당 1개).
 apply-access-policy:
   stage: vpc-sc
+  needs:
+    - "apply-services"
   <<: *tf_template
   variables:
     TF_TARGET: module.access_policy
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -509,11 +251,12 @@ apply-access-policy:
 # 자회사 추가 시 subsidiary_project_ids 갱신 후 재 apply.
 apply-service-perimeter:
   stage: vpc-sc
+  needs:
+    - "apply-access-policy"
   <<: *tf_template
   variables:
     TF_TARGET: module.service_perimeter
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -525,11 +268,12 @@ apply-service-perimeter:
 # storage.publicAccessPrevention + storage.uniformBucketLevelAccess.
 apply-storage-policies:
   stage: org-policies
+  needs:
+    - "apply-service-perimeter"
   <<: *tf_template
   variables:
     TF_TARGET: module.storage_policies
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -537,11 +281,12 @@ apply-storage-policies:
 # gcp.restrictNonCmekServices (기본 비활성 toggle).
 apply-cmek-policies:
   stage: org-policies
+  needs:
+    - "apply-storage-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.cmek_policies
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -549,11 +294,12 @@ apply-cmek-policies:
 # gcp.resourceLocations (한국 데이터 주권).
 apply-location-policies:
   stage: org-policies
+  needs:
+    - "apply-cmek-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.location_policies
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -561,11 +307,12 @@ apply-location-policies:
 # gcp.restrictServiceUsage (허용 API 화이트리스트).
 apply-service-restriction-policies:
   stage: org-policies
+  needs:
+    - "apply-location-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.service_restriction_policies
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -573,11 +320,12 @@ apply-service-restriction-policies:
 # iam.disable* (SA key / cross-project / auto-grants).
 apply-iam-policies:
   stage: org-policies
+  needs:
+    - "apply-service-restriction-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.iam_policies
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -585,10 +333,11 @@ apply-iam-policies:
 # iam.allowedPolicyMemberDomains — ⚠️ PLAN-ONLY (mz.co.kr lock 위험).
 plan-domain-policies:
   stage: org-policies
+  needs:
+    - "apply-iam-policies"
   <<: *tf_template
   script:
     - terraform plan -input=false -target=module.domain_policies
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -600,11 +349,12 @@ plan-domain-policies:
 # Organization log sink + 중앙 audit GCS bucket.
 apply-aggregated-sink:
   stage: observability
+  needs:
+    - "plan-domain-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.aggregated_log_sink
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -612,11 +362,12 @@ apply-aggregated-sink:
 # google_organization_iam_audit_config (DATA_READ/WRITE 강제, 비용 영향).
 apply-org-audit-config:
   stage: observability
+  needs:
+    - "apply-aggregated-sink"
   <<: *tf_template
   variables:
     TF_TARGET: module.org_audit_config
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -625,11 +376,12 @@ apply-org-audit-config:
 # enable_dlp_discovery=false 기본 → 자원 0개.
 apply-dlp-discovery:
   stage: observability
+  needs:
+    - "apply-org-audit-config"
   <<: *tf_template
   variables:
     TF_TARGET: module.dlp_discovery
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -641,9 +393,10 @@ apply-dlp-discovery:
 # SCC Premium/Enterprise tier 활성화 확인 게이트 (수동).
 enable-scc-tier:
   stage: scc
+  needs:
+    - "apply-dlp-discovery"
   # alpine:3(Docker Hub) override 제거 — runner가 Docker Hub 차단됨.
   # default ECR 이미지 상속 (echo만 하므로 아무 이미지나 OK).
-  needs: []
   script:
     - |
       cat <<'MSG'
@@ -660,7 +413,6 @@ enable-scc-tier:
 
       필요 권한: roles/securitycenter.admin (org) + roles/billing.user
       MSG
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -668,11 +420,12 @@ enable-scc-tier:
 # SCC notification config + PubSub topic (Premium tier 전제).
 apply-scc-notifications:
   stage: scc
+  needs:
+    - "enable-scc-tier"
   <<: *tf_template
   variables:
     TF_TARGET: module.scc_notifications
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -682,10 +435,11 @@ apply-scc-notifications:
 # ============================================================
 apply-verify:
   stage: verify
+  needs:
+    - "apply-scc-notifications"
   <<: *tf_template
   script:
     - terraform plan -input=false
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
