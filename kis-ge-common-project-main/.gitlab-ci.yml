@@ -363,9 +363,6 @@ apply-access-policy:
 apply-service-perimeter:
   stage: vpc-sc
   <<: *tf_template
-  needs:
-    - job: apply-access-policy
-      optional: true
   variables:
     TF_TARGET: module.service_perimeter
   script: *tf_apply_target
@@ -381,9 +378,6 @@ apply-service-perimeter:
 apply-storage-policies:
   stage: org-policies
   <<: *tf_template
-  needs:
-    - job: apply-service-perimeter
-      optional: true
   variables:
     TF_TARGET: module.storage_policies
   script: *tf_apply_target
@@ -395,9 +389,6 @@ apply-storage-policies:
 apply-cmek-policies:
   stage: org-policies
   <<: *tf_template
-  needs:
-    - job: apply-storage-policies
-      optional: true
   variables:
     TF_TARGET: module.cmek_policies
   script: *tf_apply_target
@@ -409,9 +400,6 @@ apply-cmek-policies:
 apply-location-policies:
   stage: org-policies
   <<: *tf_template
-  needs:
-    - job: apply-cmek-policies
-      optional: true
   variables:
     TF_TARGET: module.location_policies
   script: *tf_apply_target
@@ -423,9 +411,6 @@ apply-location-policies:
 apply-service-restriction-policies:
   stage: org-policies
   <<: *tf_template
-  needs:
-    - job: apply-location-policies
-      optional: true
   variables:
     TF_TARGET: module.service_restriction_policies
   script: *tf_apply_target
@@ -437,9 +422,6 @@ apply-service-restriction-policies:
 apply-iam-policies:
   stage: org-policies
   <<: *tf_template
-  needs:
-    - job: apply-service-restriction-policies
-      optional: true
   variables:
     TF_TARGET: module.iam_policies
   script: *tf_apply_target
@@ -451,9 +433,6 @@ apply-iam-policies:
 plan-domain-policies:
   stage: org-policies
   <<: *tf_template
-  needs:
-    - job: apply-iam-policies
-      optional: true
   script:
     - terraform plan -input=false -target=module.domain_policies
   when: manual
@@ -468,9 +447,6 @@ plan-domain-policies:
 apply-aggregated-sink:
   stage: observability
   <<: *tf_template
-  needs:
-    - job: plan-domain-policies
-      optional: true
   variables:
     TF_TARGET: module.aggregated_log_sink
   script: *tf_apply_target
@@ -482,9 +458,6 @@ apply-aggregated-sink:
 apply-org-audit-config:
   stage: observability
   <<: *tf_template
-  needs:
-    - job: apply-aggregated-sink
-      optional: true
   variables:
     TF_TARGET: module.org_audit_config
   script: *tf_apply_target
@@ -497,9 +470,6 @@ apply-org-audit-config:
 apply-dlp-discovery:
   stage: observability
   <<: *tf_template
-  needs:
-    - job: apply-org-audit-config
-      optional: true
   variables:
     TF_TARGET: module.dlp_discovery
   script: *tf_apply_target
@@ -515,9 +485,6 @@ apply-dlp-discovery:
 enable-scc-tier:
   stage: scc
   image: alpine:3
-  needs:
-    - job: apply-org-audit-config
-      optional: true
   script:
     - |
       cat <<'MSG'
@@ -542,9 +509,6 @@ enable-scc-tier:
 apply-scc-notifications:
   stage: scc
   <<: *tf_template
-  needs:
-    - job: enable-scc-tier
-      optional: true
   variables:
     TF_TARGET: module.scc_notifications
   script: *tf_apply_target
@@ -558,9 +522,6 @@ apply-scc-notifications:
 apply-verify:
   stage: verify
   <<: *tf_template
-  needs:
-    - job: apply-scc-notifications
-      optional: true
   script:
     - terraform plan -input=false
   when: manual
