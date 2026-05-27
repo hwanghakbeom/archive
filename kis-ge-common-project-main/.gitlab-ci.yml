@@ -503,6 +503,7 @@ apply-access-policy:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # 통합 Service Perimeter — 모든 자회사 프로젝트 포함.
 # 자회사 추가 시 subsidiary_project_ids 갱신 후 재 apply.
@@ -515,6 +516,7 @@ apply-service-perimeter:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ============================================================
 # Stage: org-policies (02.org-policies/*)
@@ -530,6 +532,7 @@ apply-storage-policies:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # gcp.restrictNonCmekServices (기본 비활성 toggle).
 apply-cmek-policies:
@@ -541,6 +544,7 @@ apply-cmek-policies:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # gcp.resourceLocations (한국 데이터 주권).
 apply-location-policies:
@@ -552,6 +556,7 @@ apply-location-policies:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # gcp.restrictServiceUsage (허용 API 화이트리스트).
 apply-service-restriction-policies:
@@ -563,6 +568,7 @@ apply-service-restriction-policies:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # iam.disable* (SA key / cross-project / auto-grants).
 apply-iam-policies:
@@ -574,6 +580,7 @@ apply-iam-policies:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # iam.allowedPolicyMemberDomains — ⚠️ PLAN-ONLY (mz.co.kr lock 위험).
 plan-domain-policies:
@@ -584,6 +591,7 @@ plan-domain-policies:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ============================================================
 # Stage: observability (03.observability/*)
@@ -599,6 +607,7 @@ apply-aggregated-sink:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # google_organization_iam_audit_config (DATA_READ/WRITE 강제, 비용 영향).
 apply-org-audit-config:
@@ -610,6 +619,7 @@ apply-org-audit-config:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # DLP Discovery (조직 레벨). SCC Premium tier 사전 활성화 필수.
 # enable_dlp_discovery=false 기본 → 자원 0개.
@@ -622,6 +632,7 @@ apply-dlp-discovery:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ============================================================
 # Stage: scc (04.scc/*)
@@ -650,6 +661,7 @@ enable-scc-tier:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # SCC notification config + PubSub topic (Premium tier 전제).
 apply-scc-notifications:
@@ -661,6 +673,7 @@ apply-scc-notifications:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ============================================================
 # Stage: verify — 전체 plan no-op
@@ -673,3 +686,4 @@ apply-verify:
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
