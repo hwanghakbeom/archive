@@ -63,6 +63,23 @@ default:
   - terraform apply -input=false -auto-approve tfplan.binary
 
 # ============================================================
+# 현재 진행 상황 확인 (read-only, 가벼움)
+# terraform state list = state에 기록된(=이미 적용된) 자원 목록만 출력.
+# refresh/plan 안 하므로 GCP API 자원별 호출 없음 → 빠름.
+# 목록에 있으면 "완료", 없으면 "안 함".
+# ============================================================
+show-state:
+  stage: vpc-sc
+  <<: *tf_template
+  script:
+    - echo "=== state에 기록된 자원 (= 이미 적용 완료) ==="
+    - terraform state list || echo "  (state 비어있음 — 아직 아무것도 apply 안 함)"
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ============================================================
 # State lock 강제 해제 (stale lock 정리용, 수동)
 # ⚠️ 다른 apply가 실제 실행 중이 아닐 때만 사용. hang/취소된 run이 남긴
 # default.tflock 을 삭제. 잘못 쓰면 state 손상 위험 → 꼭 단독 실행 확인 후.
