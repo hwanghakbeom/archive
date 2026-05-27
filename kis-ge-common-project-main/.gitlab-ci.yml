@@ -51,7 +51,28 @@ default:
   needs: []
   before_script:
     - mkdir -p "$TF_PLUGIN_CACHE_DIR"
-    - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
+    # SA 키 → access token 직접 발급 → provider의 느린 userinfo(www.googleapis.com) 회피.
+    # oauth2.googleapis.com/token(allowlist, 빠름)만 호출.
+    - |
+      printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json
+      JWT=$(python3 -c '
+      import json,time,base64,subprocess
+      sa=json.load(open("/tmp/sa.json"))
+      b=lambda d: base64.urlsafe_b64encode(d).rstrip(b"=")
+      now=int(time.time())
+      hdr=b(json.dumps({"alg":"RS256","typ":"JWT"}).encode())
+      pl=b(json.dumps({"iss":sa["client_email"],"scope":"https://www.googleapis.com/auth/cloud-platform","aud":sa["token_uri"],"iat":now,"exp":now+3600}).encode())
+      si=hdr+b"."+pl
+      open("/tmp/k.pem","w").write(sa["private_key"])
+      sig=subprocess.run(["openssl","dgst","-sha256","-sign","/tmp/k.pem"],input=si,capture_output=True).stdout
+      print((si+b"."+b(sig)).decode())
+      ')
+      TOKEN=$(curl -s --max-time 20 -X POST https://oauth2.googleapis.com/token \
+        -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$JWT" \
+        | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))")
+      if [ -z "$TOKEN" ]; then echo "❌ access token 발급 실패"; exit 1; fi
+      export GOOGLE_OAUTH_ACCESS_TOKEN="$TOKEN"
+      echo "✅ access token 발급 → userinfo 회피"
     - cd $TF_ROOT
     # terraform.tfvars 가 gitignore라 CI엔 없음 → example 값으로 fallback.
     # 로컬에서 만든 tfvars가 커밋되어 있으면 그게 우선 사용됨.
