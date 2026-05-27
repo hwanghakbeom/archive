@@ -14,6 +14,8 @@ provider "google" {
   ]
   # www.googleapis.com allowlist 추가 전 임시 우회 — userinfo 호출 skip.
   add_terraform_attribution_label = false
+  # org log sink(writer SA 생성 포함)는 기본 120s를 넘을 수 있어 여유.
+  request_timeout = "300s"
 }
 
 provider "google-beta" {
@@ -26,4 +28,5 @@ provider "google-beta" {
     "https://www.googleapis.com/auth/userinfo.email",
   ]
   add_terraform_attribution_label = false
+  request_timeout                 = "300s"
 }
