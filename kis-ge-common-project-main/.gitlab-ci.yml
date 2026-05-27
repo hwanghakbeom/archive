@@ -480,6 +480,19 @@ verify-sa-org-perms:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
+# 필수 GCP API 활성화 (1회). 다른 apply job 전에 먼저 실행.
+# depends_on 제거로 각 apply job이 10개 서비스를 매번 처리하지 않음 → 속도↑.
+apply-services:
+  stage: vpc-sc
+  <<: *tf_template
+  variables:
+    TF_TARGET: google_project_service.required
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
 # Access Context Manager Access Policy (조직당 1개).
 apply-access-policy:
   stage: vpc-sc

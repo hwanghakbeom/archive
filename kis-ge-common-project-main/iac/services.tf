@@ -3,8 +3,9 @@
 # user_project_override = true 라서 org-level API 호출도 billing_project로
 # quota 라우팅됨 → 해당 API들을 billing_project에 활성화해야 함.
 #
-# 각 module이 depends_on 으로 이걸 참조하므로, CI의 -target=module.X 실행
-# 시에도 API 활성화가 먼저 일어남.
+# CI의 `apply-services` job(-target=google_project_service.required)으로
+# 한 번만 활성화. 이후 다른 apply job들은 depends_on 없이 자기 모듈만 처리
+# (매 job마다 10개 서비스 refresh 안 해서 빠름). apply-services를 먼저 실행할 것.
 # =============================================================
 locals {
   required_services = [
