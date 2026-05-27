@@ -298,21 +298,21 @@ verify-sa-org-perms:
       gcloud projects get-ancestors "$SA_PROJECT" 2>&1 || echo "  (get-ancestors 실패)"
       echo "  --- SA가 볼 수 있는 organization 목록 ---"
       gcloud organizations list --format="table(displayName,ID)" 2>&1 || echo "  (organizations list 실패 — org viewer 권한 없을 수 있음)"
-      echo "  ⮕ 위 org ID가 terraform org_id (현재 240369219899)와 다르면 그게 403 원인"
+      echo "  ⮕ 위 org ID가 terraform org_id (현재 457872813001)와 다르면 그게 403 원인"
 
       echo ""
-      echo "=== 4. org IAM에서 이 SA의 역할 조회 (현재 설정 org 240369219899) ==="
-      gcloud organizations get-iam-policy 240369219899 \
+      echo "=== 4. org IAM에서 이 SA의 역할 조회 (현재 설정 org 457872813001) ==="
+      gcloud organizations get-iam-policy 457872813001 \
         --flatten="bindings[].members" \
         --filter="bindings.members:serviceAccount:${SA_EMAIL}" \
         --format="table(bindings.role)" || echo "  (조회 실패 — 이 org에 권한 없거나 다른 org임)"
 
       echo ""
-      echo "=== 5. ACM policy list 시도 (현재 설정 org 240369219899) ==="
-      if gcloud access-context-manager policies list --organization=240369219899; then
-        echo "  ✅ 240369219899에 accesscontextmanager 권한 OK"
+      echo "=== 5. ACM policy list 시도 (현재 설정 org 457872813001) ==="
+      if gcloud access-context-manager policies list --organization=457872813001; then
+        echo "  ✅ 457872813001에 accesscontextmanager 권한 OK"
       else
-        echo "  ❌ 403 — 240369219899엔 권한 없음 (org ID가 틀렸거나 권한 미부여)"
+        echo "  ❌ 403 — 457872813001엔 권한 없음 (org ID가 틀렸거나 권한 미부여)"
       fi
   when: manual
   rules:

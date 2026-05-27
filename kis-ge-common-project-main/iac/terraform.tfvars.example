@@ -5,7 +5,7 @@
 # (kis-ge-project, kih-ge-project, ...)에서 관리한다.
 
 # === Org identity ===
-org_id          = "240369219899"
+org_id          = "457872813001"
 billing_project = "kis-gemini-common-prod"
 region_primary  = "asia-northeast3"
 
