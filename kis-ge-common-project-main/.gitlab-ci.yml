@@ -50,9 +50,10 @@ default:
 .tf_template: &tf_template
   # 동일 GCS state를 동시 접근하면 lock 충돌(412) → resource_group으로 직렬화.
   # 같은 그룹의 job은 파이프라인 전체에서 한 번에 하나만 실행됨 (state-lock 방지).
-  # 주의: 앵커에 needs를 두면 <<: 병합이 각 job의 needs를 덮어써(GitLab 동작)
-  #       전 job이 동시 실행됨 → needs는 각 job에서만 명시. 앵커엔 두지 않음.
   resource_group: tfstate
+  # needs: [] → stage 순서 무시, 모든 apply job을 아무 때나 독립 클릭 가능.
+  # 변경된 모듈의 job만 골라 수동 실행 (전체 cascade 불필요).
+  needs: []
   before_script:
     - mkdir -p "$TF_PLUGIN_CACHE_DIR"
     # SA 키 → access token 직접 발급 → provider의 느린 userinfo(www.googleapis.com) 회피.
@@ -229,11 +230,11 @@ plan:
 # depends_on 제거로 각 apply job이 10개 서비스를 매번 처리하지 않음 → 속도↑.
 apply-services:
   stage: vpc-sc
-  needs: []                # 체인 시작점 — web 파이프라인 시작 시 자동 실행
   <<: *tf_template
   variables:
     TF_TARGET: google_project_service.required
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -241,12 +242,11 @@ apply-services:
 # Access Context Manager Access Policy (조직당 1개).
 apply-access-policy:
   stage: vpc-sc
-  needs:
-    - "apply-services"
   <<: *tf_template
   variables:
     TF_TARGET: module.access_policy
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -255,12 +255,11 @@ apply-access-policy:
 # 자회사 추가 시 subsidiary_project_ids 갱신 후 재 apply.
 apply-service-perimeter:
   stage: vpc-sc
-  needs:
-    - "apply-access-policy"
   <<: *tf_template
   variables:
     TF_TARGET: module.service_perimeter
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -272,12 +271,11 @@ apply-service-perimeter:
 # storage.publicAccessPrevention + storage.uniformBucketLevelAccess.
 apply-storage-policies:
   stage: org-policies
-  needs:
-    - "apply-service-perimeter"
   <<: *tf_template
   variables:
     TF_TARGET: module.storage_policies
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -285,12 +283,11 @@ apply-storage-policies:
 # gcp.restrictNonCmekServices (기본 비활성 toggle).
 apply-cmek-policies:
   stage: org-policies
-  needs:
-    - "apply-storage-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.cmek_policies
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -298,12 +295,11 @@ apply-cmek-policies:
 # gcp.resourceLocations (한국 데이터 주권).
 apply-location-policies:
   stage: org-policies
-  needs:
-    - "apply-cmek-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.location_policies
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -311,12 +307,11 @@ apply-location-policies:
 # gcp.restrictServiceUsage (허용 API 화이트리스트).
 apply-service-restriction-policies:
   stage: org-policies
-  needs:
-    - "apply-location-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.service_restriction_policies
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -324,12 +319,11 @@ apply-service-restriction-policies:
 # iam.disable* (SA key / cross-project / auto-grants).
 apply-iam-policies:
   stage: org-policies
-  needs:
-    - "apply-service-restriction-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.iam_policies
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -337,11 +331,10 @@ apply-iam-policies:
 # iam.allowedPolicyMemberDomains — ⚠️ PLAN-ONLY (mz.co.kr lock 위험).
 plan-domain-policies:
   stage: org-policies
-  needs:
-    - "apply-iam-policies"
   <<: *tf_template
   script:
     - terraform plan -input=false -target=module.domain_policies
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -353,12 +346,11 @@ plan-domain-policies:
 # Organization log sink + 중앙 audit GCS bucket.
 apply-aggregated-sink:
   stage: observability
-  needs:
-    - "plan-domain-policies"
   <<: *tf_template
   variables:
     TF_TARGET: module.aggregated_log_sink
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -366,12 +358,11 @@ apply-aggregated-sink:
 # google_organization_iam_audit_config (DATA_READ/WRITE 강제, 비용 영향).
 apply-org-audit-config:
   stage: observability
-  needs:
-    - "apply-aggregated-sink"
   <<: *tf_template
   variables:
     TF_TARGET: module.org_audit_config
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -380,12 +371,11 @@ apply-org-audit-config:
 # enable_dlp_discovery=false 기본 → 자원 0개.
 apply-dlp-discovery:
   stage: observability
-  needs:
-    - "apply-org-audit-config"
   <<: *tf_template
   variables:
     TF_TARGET: module.dlp_discovery
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -397,8 +387,6 @@ apply-dlp-discovery:
 # SCC Premium/Enterprise tier 활성화 확인 게이트 (수동).
 enable-scc-tier:
   stage: scc
-  needs:
-    - "apply-dlp-discovery"
   # alpine:3(Docker Hub) override 제거 — runner가 Docker Hub 차단됨.
   # default ECR 이미지 상속 (echo만 하므로 아무 이미지나 OK).
   script:
@@ -417,6 +405,7 @@ enable-scc-tier:
 
       필요 권한: roles/securitycenter.admin (org) + roles/billing.user
       MSG
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -424,12 +413,11 @@ enable-scc-tier:
 # SCC notification config + PubSub topic (Premium tier 전제).
 apply-scc-notifications:
   stage: scc
-  needs:
-    - "enable-scc-tier"
   <<: *tf_template
   variables:
     TF_TARGET: module.scc_notifications
   script: *tf_apply_target
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
@@ -439,11 +427,10 @@ apply-scc-notifications:
 # ============================================================
 apply-verify:
   stage: verify
-  needs:
-    - "apply-scc-notifications"
   <<: *tf_template
   script:
     - terraform plan -input=false
+  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
