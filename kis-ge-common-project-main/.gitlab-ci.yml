@@ -83,6 +83,99 @@ show-state:
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ============================================================
+# VPC-SC perimeter 실체 확인 (read-only)
+# org의 access policy + perimeter 목록/설정을 SA로 조회.
+# 어떤 perimeter가 어떤 프로젝트를 보호하는지, enforce/dry-run인지 확인.
+# ============================================================
+perimeter-inspect:
+  stage: vpc-sc
+  needs: []
+  before_script:
+    - |
+      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
+      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
+      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
+      tar -xzf /tmp/gcloud.tar.gz -C /tmp
+      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+      gcloud auth activate-service-account --key-file=/tmp/sa.json
+  script:
+    - export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+    - |
+      echo "=== Access Policy 목록 ==="
+      gcloud access-context-manager policies list --organization=457872813001 \
+        --format="table(name,title)" || echo "  (조회 실패)"
+      POLICY=$(gcloud access-context-manager policies list --organization=457872813001 --format="value(name)" | head -1)
+      echo "  POLICY=$POLICY"
+      if [ -z "$POLICY" ]; then echo "  Access Policy 없음 → perimeter도 없음"; exit 0; fi
+
+      echo ""
+      echo "=== Perimeter 목록 ==="
+      gcloud access-context-manager perimeters list --policy="$POLICY" \
+        --format="table(name,title,perimeterType)" || echo "  (perimeter 없음)"
+
+      echo ""
+      echo "=== Perimeter 상세 (보호 프로젝트 / enforce 여부) ==="
+      for P in $(gcloud access-context-manager perimeters list --policy="$POLICY" --format="value(name)"); do
+        echo "--- $P ---"
+        gcloud access-context-manager perimeters describe "$P" --policy="$POLICY"
+        echo ""
+      done
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ============================================================
+# ⚠️⚠️ VPC-SC perimeter 비활성화 (DESTRUCTIVE, 수동)
+# perimeter를 삭제해 enforcement 제거 → 외부 runner가 보호 프로젝트 접근 가능.
+# 삭제 전 describe로 전체 config를 로그에 기록 (복구용).
+# 조직 보안 통제 제거이므로 perimeter-inspect로 확인 후, 신중히 실행.
+# 안전장치: CONFIRM_DISABLE=yes 변수를 줘야 실제 삭제됨.
+# ============================================================
+perimeter-disable:
+  stage: vpc-sc
+  needs: []
+  before_script:
+    - |
+      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
+      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
+      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
+      tar -xzf /tmp/gcloud.tar.gz -C /tmp
+      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+      gcloud auth activate-service-account --key-file=/tmp/sa.json
+  script:
+    - export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+    - |
+      POLICY=$(gcloud access-context-manager policies list --organization=457872813001 --format="value(name)" | head -1)
+      if [ -z "$POLICY" ]; then echo "Access Policy 없음 → perimeter 없음, 할 일 없음"; exit 0; fi
+      PERIMETERS=$(gcloud access-context-manager perimeters list --policy="$POLICY" --format="value(name)")
+      if [ -z "$PERIMETERS" ]; then echo "perimeter 없음 → 할 일 없음"; exit 0; fi
+
+      echo "=== 삭제 전 config 백업 기록 (복구용) ==="
+      for P in $PERIMETERS; do
+        echo "--- $P ---"
+        gcloud access-context-manager perimeters describe "$P" --policy="$POLICY"
+        echo ""
+      done
+
+      if [ "${CONFIRM_DISABLE:-}" != "yes" ]; then
+        echo "⚠️ CONFIRM_DISABLE=yes 가 아니라서 삭제 안 함 (dry-run)."
+        echo "   실제로 disable하려면 job 실행 시 변수 CONFIRM_DISABLE=yes 추가."
+        exit 0
+      fi
+
+      echo "=== perimeter 삭제 (disable) ==="
+      for P in $PERIMETERS; do
+        echo "deleting $P ..."
+        gcloud access-context-manager perimeters delete "$P" --policy="$POLICY" --quiet \
+          && echo "  ✅ 삭제됨" || echo "  ❌ 삭제 실패"
+      done
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ============================================================
 # State lock 강제 해제 (stale lock 정리용, 수동)
 # ⚠️ 다른 apply가 실제 실행 중이 아닐 때만 사용. hang/취소된 run이 남긴
 # default.tflock 을 삭제. 잘못 쓰면 state 손상 위험 → 꼭 단독 실행 확인 후.
