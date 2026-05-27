@@ -17,3 +17,19 @@ import {
   to = module.storage_policies.google_org_policy_policy.uniform_bucket_level_access[0]
   id = "organizations/457872813001/policies/storage.uniformBucketLevelAccess"
 }
+
+# ── IAM org policies (secure-by-default로 이미 존재 가능) ──
+import {
+  to = module.iam_policies.google_org_policy_policy.disable_sa_key_creation[0]
+  id = "organizations/457872813001/policies/iam.disableServiceAccountKeyCreation"
+}
+
+import {
+  to = module.iam_policies.google_org_policy_policy.disable_cross_project_sa[0]
+  id = "organizations/457872813001/policies/iam.disableCrossProjectServiceAccountUsage"
+}
+
+import {
+  to = module.iam_policies.google_org_policy_policy.disable_auto_iam_default_sa[0]
+  id = "organizations/457872813001/policies/iam.automaticIamGrantsForDefaultServiceAccounts"
+}
