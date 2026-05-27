@@ -76,7 +76,8 @@ default:
     - cd $TF_ROOT
     # terraform.tfvars 가 gitignore라 CI엔 없음 → example 값으로 fallback.
     # 로컬에서 만든 tfvars가 커밋되어 있으면 그게 우선 사용됨.
-    - '[ -f terraform.tfvars ] || cp terraform.tfvars.example terraform.tfvars'
+    # example 값으로 항상 덮어씀 (stale/불완전 tfvars 방지). 값은 example이 source of truth.
+    - cp -f terraform.tfvars.example terraform.tfvars
     - terraform init
         -backend-config="bucket=$TF_STATE_BUCKET"
         -backend-config="prefix=$TF_STATE_PREFIX"
@@ -416,7 +417,8 @@ validate:
   script:
     - terraform fmt -check -recursive $TF_ROOT
     - cd $TF_ROOT
-    - '[ -f terraform.tfvars ] || cp terraform.tfvars.example terraform.tfvars'
+    # example 값으로 항상 덮어씀 (stale/불완전 tfvars 방지). 값은 example이 source of truth.
+    - cp -f terraform.tfvars.example terraform.tfvars
     - terraform init
         -backend-config="bucket=$TF_STATE_BUCKET"
         -backend-config="prefix=$TF_STATE_PREFIX"
