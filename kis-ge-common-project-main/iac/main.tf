@@ -6,6 +6,8 @@ module "access_policy" {
 
   org_id = var.org_id
   title  = var.access_policy_title
+
+  depends_on = [google_project_service.required]
 }
 
 # 중앙 통합 Service Perimeter — 모든 자회사 프로젝트를 한 perimeter에 포함.
@@ -22,6 +24,8 @@ module "service_perimeter" {
   ingress_identities      = var.perimeter_ingress_identities
   ingress_source_projects = var.perimeter_ingress_source_projects
   restricted_services     = var.perimeter_restricted_services
+
+  depends_on = [google_project_service.required]
 }
 
 # =============================================================
@@ -34,6 +38,8 @@ module "storage_policies" {
   org_id                              = var.org_id
   enforce_public_access_prevention    = var.enforce_public_access_prevention
   enforce_uniform_bucket_level_access = var.enforce_uniform_bucket_level_access
+
+  depends_on = [google_project_service.required]
 }
 
 module "cmek_policies" {
@@ -42,6 +48,8 @@ module "cmek_policies" {
   org_id                   = var.org_id
   enable_restrict_non_cmek = var.enable_restrict_non_cmek
   cmek_required_services   = var.cmek_required_services
+
+  depends_on = [google_project_service.required]
 }
 
 # =============================================================
@@ -58,6 +66,8 @@ module "aggregated_log_sink" {
   retention_days            = var.retention_days
   lock_retention            = var.lock_retention
   sink_name                 = var.aggregated_sink_name
+
+  depends_on = [google_project_service.required]
 }
 
 module "org_audit_config" {
@@ -65,6 +75,8 @@ module "org_audit_config" {
 
   org_id                   = var.org_id
   enable_data_access_audit = var.enable_org_data_access_audit
+
+  depends_on = [google_project_service.required]
 }
 
 # 조직 레벨 DLP Discovery — BQ/Cloud SQL/GCS의 PII/금융정보 자동 분류.
@@ -78,6 +90,8 @@ module "dlp_discovery" {
   scan_targets                = var.dlp_scan_targets
   cadence_frequency           = var.dlp_cadence_frequency
   subsidiary_project_id_regex = var.dlp_subsidiary_project_id_regex
+
+  depends_on = [google_project_service.required]
 }
 
 # =============================================================
@@ -90,6 +104,8 @@ module "location_policies" {
   org_id                    = var.org_id
   enable_resource_locations = var.enable_resource_locations
   allowed_locations         = var.allowed_locations
+
+  depends_on = [google_project_service.required]
 }
 
 module "service_restriction_policies" {
@@ -98,6 +114,8 @@ module "service_restriction_policies" {
   org_id                        = var.org_id
   enable_restrict_service_usage = var.enable_restrict_service_usage
   allowed_services              = var.allowed_services
+
+  depends_on = [google_project_service.required]
 }
 
 module "iam_policies" {
@@ -107,6 +125,8 @@ module "iam_policies" {
   disable_service_account_key_creation        = var.disable_service_account_key_creation
   disable_cross_project_service_account_usage = var.disable_cross_project_service_account_usage
   disable_automatic_iam_grants_default_sa     = var.disable_automatic_iam_grants_default_sa
+
+  depends_on = [google_project_service.required]
 }
 
 # =============================================================
@@ -119,6 +139,8 @@ module "domain_policies" {
   org_id                    = var.org_id
   enable_domain_restriction = var.enable_domain_restriction
   allowed_member_domains    = var.allowed_member_domains
+
+  depends_on = [google_project_service.required]
 }
 
 # =============================================================
@@ -136,4 +158,6 @@ module "scc_notifications" {
   notification_config_id   = var.scc_notification_config_id
   notification_filter      = var.scc_notification_filter
   notification_description = "Active HIGH/CRITICAL SCC findings → PubSub (SIEM/Slack/Email 연동용)"
+
+  depends_on = [google_project_service.required]
 }
