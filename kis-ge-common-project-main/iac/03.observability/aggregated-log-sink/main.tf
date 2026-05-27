@@ -50,9 +50,18 @@ resource "google_logging_organization_sink" "audit" {
   filter      = local.audit_filter
 }
 
+# org sink writer identity SA는 생성 직후 IAM에 propagate되는 데 시간이 걸려,
+# 바로 bucket IAM 바인딩하면 "service account does not exist"(400) 발생. 60초 대기.
+resource "time_sleep" "wait_writer_sa" {
+  depends_on      = [google_logging_organization_sink.audit]
+  create_duration = "60s"
+}
+
 # Sink의 unique writer SA에 중앙 bucket 쓰기 권한 부여.
 resource "google_storage_bucket_iam_member" "sink_writer" {
   bucket = google_storage_bucket.central_audit.name
   role   = "roles/storage.objectCreator"
   member = google_logging_organization_sink.audit.writer_identity
+
+  depends_on = [time_sleep.wait_writer_sa]
 }
