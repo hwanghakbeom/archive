@@ -24,10 +24,8 @@ import {
   id = "organizations/457872813001/policies/iam.disableServiceAccountKeyCreation"
 }
 
-import {
-  to = module.iam_policies.google_org_policy_policy.disable_cross_project_sa[0]
-  id = "organizations/457872813001/policies/iam.disableCrossProjectServiceAccountUsage"
-}
+# disable_cross_project_sa 는 org에 미설정 → import 아닌 신규 생성.
+# (import block 없으면 terraform이 자동 생성)
 
 import {
   to = module.iam_policies.google_org_policy_policy.disable_auto_iam_default_sa[0]
