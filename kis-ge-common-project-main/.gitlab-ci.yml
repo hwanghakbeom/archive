@@ -28,10 +28,10 @@ cache:
 
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'        # GitLab UI 수동 실행
-    - if: '$CI_PIPELINE_SOURCE == "schedule"'   # 스케줄
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # MR: validate/plan
+    # main push로는 파이프라인을 만들지 않음 — apply 체인이 push마다 자동 실행되는
+    # 사고 방지. 배포는 "Run Pipeline"(web) 버튼으로 의도적으로 트리거.
+    - if: '$CI_PIPELINE_SOURCE == "web"'        # 배포 트리거 (apply 체인 자동 cascade)
     - when: never
 
 default:
@@ -229,12 +229,11 @@ plan:
 # depends_on 제거로 각 apply job이 10개 서비스를 매번 처리하지 않음 → 속도↑.
 apply-services:
   stage: vpc-sc
-  needs: []                # 체인 시작점 — 즉시 수동 실행 가능
+  needs: []                # 체인 시작점 — web 파이프라인 시작 시 자동 실행
   <<: *tf_template
   variables:
     TF_TARGET: google_project_service.required
   script: *tf_apply_target
-  when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
