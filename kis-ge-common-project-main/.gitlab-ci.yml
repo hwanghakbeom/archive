@@ -54,6 +54,34 @@ default:
   - terraform apply -input=false -auto-approve tfplan.binary
 
 # ============================================================
+# State lock 강제 해제 (stale lock 정리용, 수동)
+# ⚠️ 다른 apply가 실제 실행 중이 아닐 때만 사용. hang/취소된 run이 남긴
+# default.tflock 을 삭제. 잘못 쓰면 state 손상 위험 → 꼭 단독 실행 확인 후.
+# ============================================================
+unlock-state:
+  stage: bootstrap
+  script:
+    - |
+      set -e
+      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
+      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
+      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
+      tar -xzf /tmp/gcloud.tar.gz -C /tmp
+      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+      gcloud auth activate-service-account --key-file=/tmp/sa.json
+      LOCK="gs://${TF_STATE_BUCKET}/${TF_STATE_PREFIX}/default.tflock"
+      echo "=== stale lock 삭제 시도: $LOCK ==="
+      if gcloud storage rm "$LOCK"; then
+        echo "  ✅ lock 삭제됨 — 이제 plan/apply 재실행 가능"
+      else
+        echo "  (lock 파일 없음 — 이미 해제됨)"
+      fi
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# ============================================================
 # Bootstrap 진단 (network 연결 점검)
 # Google API 도달성 + DNS + TLS handshake 확인. 막혔으면 인프라팀에 요청.
 # ============================================================
