@@ -29,9 +29,9 @@ cache:
 workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # MR: validate/plan
-    # main push로는 파이프라인을 만들지 않음 — apply 체인이 push마다 자동 실행되는
-    # 사고 방지. 배포는 "Run Pipeline"(web) 버튼으로 의도적으로 트리거.
-    - if: '$CI_PIPELINE_SOURCE == "web"'        # 배포 트리거 (apply 체인 자동 cascade)
+    # main push → apply 체인 자동 cascade 시작 (apply-services부터 순차 실행).
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'        # "Run Pipeline" 수동 트리거도 가능
     - when: never
 
 default:
