@@ -226,6 +226,34 @@ plan:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
+# ============================================================
+# 전체 순차 배포 (1클릭) — 모든 모듈을 정해진 순서로 한 job에서 apply.
+# init/토큰 발급 1회만 → 개별 job 15개 cascade보다 훨씬 빠름.
+# 신규/전체 배포는 이 job 하나, 변경분만 반영은 아래 개별 apply-* job.
+# domain_policies는 plan-only(mz.co.kr lock 위험)라 의도적으로 제외.
+# ============================================================
+deploy-all:
+  stage: vpc-sc
+  <<: *tf_template
+  script:
+    - terraform apply -input=false -refresh=false -auto-approve -target=google_project_service.required
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.access_policy
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.service_perimeter
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.storage_policies
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.cmek_policies
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.location_policies
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.service_restriction_policies
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.iam_policies
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.aggregated_log_sink
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.org_audit_config
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.dlp_discovery
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.scc_notifications
+    - terraform plan -input=false   # 최종 확인 (domain_policies 제외 상태에서 no-op이어야 함)
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
 # 필수 GCP API 활성화 (1회). 다른 apply job 전에 먼저 실행.
 # depends_on 제거로 각 apply job이 10개 서비스를 매번 처리하지 않음 → 속도↑.
 apply-services:
