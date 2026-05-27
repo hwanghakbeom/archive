@@ -5,13 +5,17 @@
 # oauth2.googleapis.com/token (allowlist) 만 호출.
 set -euo pipefail
 
-if [ -z "${kis_gemini_common_prod_iac_key:-}" ]; then
-  echo "❌ SA 키 변수(kis_gemini_common_prod_iac_key)가 비어있음 — 이 파이프라인에 미주입." >&2
-  echo "   GitLab 변수 확인: (a) Group 레벨 정의 (b) 이 프로젝트가 같은 Group (c) Protected/브랜치 (d) Env scope" >&2
+VAL="${kis_gemini_common_prod_iac_key:-}"
+if [ -z "$VAL" ]; then
+  echo "❌ SA 키 변수가 비어있음 — 파이프라인에 미주입 (Group/Protected/Env scope 확인)." >&2
   exit 1
 fi
-
-printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json
+# File 타입 변수면 $VAL이 파일 경로, Variable 타입이면 JSON 내용.
+if [ -f "$VAL" ]; then
+  cp "$VAL" /tmp/sa.json            # File 타입 (경로)
+else
+  printf '%s' "$VAL" > /tmp/sa.json  # Variable 타입 (내용)
+fi
 
 JWT=$(python3 -c 'import json,time,base64,subprocess; sa=json.load(open("/tmp/sa.json")); b=lambda d: base64.urlsafe_b64encode(d).rstrip(b"="); now=int(time.time()); hdr=b(json.dumps({"alg":"RS256","typ":"JWT"}).encode()); pl=b(json.dumps({"iss":sa["client_email"],"scope":"https://www.googleapis.com/auth/cloud-platform","aud":sa["token_uri"],"iat":now,"exp":now+3600}).encode()); si=hdr+b"."+pl; open("/tmp/k.pem","w").write(sa["private_key"]); sig=subprocess.run(["openssl","dgst","-sha256","-sign","/tmp/k.pem"],input=si,capture_output=True).stdout; print((si+b"."+b(sig)).decode())')
 
