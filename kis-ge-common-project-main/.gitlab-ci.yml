@@ -254,11 +254,25 @@ plan:
 # ACM policy list 시도 → 성공하면 권한 OK, 403이면 org 권한 미부여.
 verify-sa-org-perms:
   stage: vpc-sc
-  before_script:
-    - echo "$kis_gemini_common_prod_iac_key" > /tmp/sa.json
   script:
     - |
       set -e
+      echo "=== 0. 변수 타입 감지 + SA 키 추출 ==="
+      echo "  raw length: ${#kis_gemini_common_prod_iac_key}"
+      if [ -f "$kis_gemini_common_prod_iac_key" ]; then
+        echo "  → File 타입 (path=$kis_gemini_common_prod_iac_key)"
+        cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json
+      else
+        echo "  → Variable 타입(content) 또는 빈 값"
+        printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json
+      fi
+      echo "  /tmp/sa.json size: $(wc -c < /tmp/sa.json) bytes"
+      if [ ! -s /tmp/sa.json ]; then
+        echo "  ❌ SA 키가 비어있음 — 변수가 이 job에 주입 안 됨 (Protected/Environment scope 또는 변수명 오타)"
+        exit 1
+      fi
+
+      echo ""
       echo "=== 1. SA email ==="
       SA_EMAIL=$(python3 -c "import json; print(json.load(open('/tmp/sa.json'))['client_email'])")
       echo "  $SA_EMAIL"
