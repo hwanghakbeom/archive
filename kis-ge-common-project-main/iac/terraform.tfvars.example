@@ -24,8 +24,8 @@ subsidiary_project_ids   = []
 #   "kih-gemini-enterprise",
 # ]
 perimeter_allowed_ip_ranges       = []
-perimeter_allowed_members         = ["user:snswang@mz.co.kr"]
-perimeter_ingress_identities      = ["user:snswang@mz.co.kr"]
+perimeter_allowed_members         = ["user:angelo@koreainvestment.com"]
+perimeter_ingress_identities      = ["user:angelo@koreainvestment.com"]
 perimeter_ingress_source_projects = []
 perimeter_restricted_services = [
   "aiplatform.googleapis.com",
