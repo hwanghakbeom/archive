@@ -66,7 +66,8 @@ default:
 
 # target 지정 apply 공통 스크립트
 .tf_apply_target: &tf_apply_target
-  - terraform plan -input=false -target=$TF_TARGET -out=tfplan.binary
+  # -refresh=false: 이미 적용된 자원 재조회 생략 → plan 속도↑ (proxy 지연 회피)
+  - terraform plan -input=false -refresh=false -target=$TF_TARGET -out=tfplan.binary
   - terraform apply -input=false -auto-approve tfplan.binary
 
 # ============================================================
