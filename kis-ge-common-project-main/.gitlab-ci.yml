@@ -48,7 +48,11 @@ default:
 # (단, 같은 state라 동시 실행은 금지 — 하나씩 수동 실행)
 # ------------------------------------------------------------
 .tf_template: &tf_template
-  needs: []
+  # 동일 GCS state를 동시 접근하면 lock 충돌(412) → resource_group으로 직렬화.
+  # 같은 그룹의 job은 파이프라인 전체에서 한 번에 하나만 실행됨 (state-lock 방지).
+  # 주의: 앵커에 needs를 두면 <<: 병합이 각 job의 needs를 덮어써(GitLab 동작)
+  #       전 job이 동시 실행됨 → needs는 각 job에서만 명시. 앵커엔 두지 않음.
+  resource_group: tfstate
   before_script:
     - mkdir -p "$TF_PLUGIN_CACHE_DIR"
     # SA 키 → access token 직접 발급 → provider의 느린 userinfo(www.googleapis.com) 회피.
@@ -225,6 +229,7 @@ plan:
 # depends_on 제거로 각 apply job이 10개 서비스를 매번 처리하지 않음 → 속도↑.
 apply-services:
   stage: vpc-sc
+  needs: []                # 체인 시작점 — 즉시 수동 실행 가능
   <<: *tf_template
   variables:
     TF_TARGET: google_project_service.required
