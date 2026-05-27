@@ -17,6 +17,14 @@ variables:
   TF_INPUT: "false"
   # checkpoint-api.hashicorp.com 호출 차단 — allowlist 외이고 기능적으로 불필요
   CHECKPOINT_DISABLE: "1"
+  # provider plugin 캐시 — job마다 google provider(~150MB) 재다운로드 방지 (속도↑)
+  TF_PLUGIN_CACHE_DIR: "$CI_PROJECT_DIR/.tf-plugin-cache"
+
+# provider 캐시를 job 간 공유 (init 시간 대폭 단축)
+cache:
+  key: tf-providers-$TF_VERSION
+  paths:
+    - .tf-plugin-cache
 
 workflow:
   rules:
@@ -39,6 +47,7 @@ default:
 # ------------------------------------------------------------
 .tf_template: &tf_template
   before_script:
+    - mkdir -p "$TF_PLUGIN_CACHE_DIR"
     - export GOOGLE_CREDENTIALS="$kis_gemini_common_prod_iac_key"
     - cd $TF_ROOT
     # terraform.tfvars 가 gitignore라 CI엔 없음 → example 값으로 fallback.
