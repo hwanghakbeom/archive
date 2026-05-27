@@ -77,10 +77,12 @@ dlp_cadence_frequency           = "UPDATE_FREQUENCY_MONTHLY"  # DAILY가 더 비
 dlp_subsidiary_project_id_regex = ".*-(kis|kih)$"
 
 # === Phase 4-A: Location Restrictions (한국 데이터 주권) ===
-enable_resource_locations = true
+# 비활성화 — Model Armor/DLP 템플릿이 us 멀티리전(KR_* detector 제약)에 생성돼야 하는데
+# gcp.resourceLocations(한국 제약)와 충돌. 정책 자체를 제거(count=0 → destroy).
+enable_resource_locations = false
 allowed_locations = [
   "in:asia-northeast3-locations", # 서울 region
-  "in:asia-locations",            # asia multi-region (DLP us 예외 포함되려면 in:us-locations 추가)
+  "in:asia-locations",            # asia multi-region
 ]
 
 # === Phase 4-B: Service Usage Restriction (API 화이트리스트) ===
