@@ -91,7 +91,9 @@ enable_restrict_service_usage = true
 
 # === Phase 4-C: IAM Policies (SA 보안) ===
 disable_service_account_key_creation        = true
-disable_cross_project_service_account_usage = true
+# ⚠️ koreainvestment.com org에서 iam.disableCrossProjectServiceAccountUsage
+# constraint가 404(미지원)라 일단 비활성. 지원 확인 후 true로 재활성 가능.
+disable_cross_project_service_account_usage = false
 disable_automatic_iam_grants_default_sa     = true
 
 # === Phase 5: Domain Restriction (⚠️ mz.co.kr lock 위험) ===
