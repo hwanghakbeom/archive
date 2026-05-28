@@ -19,6 +19,15 @@ locals {
     "securitycenter.googleapis.com",       # Phase 6 (SCC, 선택)
     "pubsub.googleapis.com",               # Phase 6 (SCC notification, 선택)
     "dlp.googleapis.com",                  # DLP Discovery (선택)
+    # ─── GE provider의 billing_project=kis-gemini-common-prod + user_project_override
+    # 때문에 GE side API 호출의 quota가 여기로 라우팅됨.
+    # resource project(kis-gemini-prod) 뿐 아니라 quota project(여기)에도
+    # 활성화돼야 "API has not been used in project kis-gemini-common-prod" 회피.
+    "discoveryengine.googleapis.com", # Gemini Enterprise
+    "modelarmor.googleapis.com",      # Model Armor 템플릿
+    "aiplatform.googleapis.com",      # Vertex AI (향후 Agent / Reasoning Engine)
+    "cloudkms.googleapis.com",        # KMS
+    "datacatalog.googleapis.com",     # Data Catalog
   ]
 }
 
