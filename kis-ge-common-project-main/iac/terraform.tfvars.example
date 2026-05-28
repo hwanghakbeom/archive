@@ -17,13 +17,18 @@ access_policy_title = "krinvest-lzone-policy"
 # 자회사 stack apply 후 subsidiary_project_ids에 새 프로젝트 추가하고 재 apply.
 enable_central_perimeter = false
 perimeter_dry_run        = true
-subsidiary_project_ids = ["kis-ge-prod"]
-# 자회사 추가 시 위 리스트에 project_id 추가 후 apply-service-perimeter 재실행.
-# 예시 (다중 자회사):
-# subsidiary_project_ids = [
-#   "kis-ge-prod",
-#   "kih-ge-prod",
-# ]
+# Korea Investment 8개 자회사 GE 프로젝트 — perimeter에 포함.
+subsidiary_project_ids = [
+  "kih-ge-prod",   # 지주 (Korea Investment Holdings)
+  "kis-ge-prod",   # 증권 (Korea Investment & Securities)
+  "kisb-ge-prod",  # 저축은행 (Korea Investment Savings Bank)
+  "kic-ge-prod",   # 캐피탈 (Korea Investment Capital)
+  "kim-ge-prod",   # 신탁운용 (Korea Investment Management)
+  "kivam-ge-prod", # 밸류운용 (Korea Investment Value Asset Management)
+  "kit-ge-prod",   # 부동산신탁 (Korea Investment Real Estate Trust)
+  "kip-ge-prod",   # 파트너스 (Korea Investment Partners)
+]
+# 자회사 추가/변경 시 위 리스트 갱신 후 apply-service-perimeter 재실행.
 perimeter_allowed_ip_ranges       = []
 perimeter_allowed_members         = ["user:angelo@koreainvestment.com"]
 perimeter_ingress_identities      = ["user:angelo@koreainvestment.com"]
