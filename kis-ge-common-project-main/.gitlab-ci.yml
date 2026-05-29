@@ -464,7 +464,17 @@ apply-scc-onprem-forwarder:
   <<: *tf_template
   variables:
     TF_TARGET: module.scc_onprem_forwarder
-  script: *tf_apply_target
+  script:
+    - terraform plan -input=false -refresh=false -target=$TF_TARGET -out=tfplan.binary
+    - terraform apply -input=false -auto-approve tfplan.binary
+    # apply 완료 직후 NAT 고정 IP를 바로 노출 — on-prem 방화벽 화이트리스트 등록용.
+    - echo "================ Deployed Outputs ================"
+    - terraform output scc_forwarder_egress_ip          || true
+    - terraform output scc_forwarder_artifact_registry  || true
+    - terraform output scc_forwarder_job_name           || true
+    - terraform output scc_forwarder_service_account    || true
+    - terraform output scc_forwarder_secret_id          || true
+    - echo "=================================================="
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
