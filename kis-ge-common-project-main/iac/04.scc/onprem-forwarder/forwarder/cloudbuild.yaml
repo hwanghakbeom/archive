@@ -1,0 +1,32 @@
+# Cloud Build로 forwarder 이미지를 빌드/푸시.
+# 실행:
+#   gcloud builds submit \
+#     --config=cloudbuild.yaml \
+#     --project=kis-gemini-common-prod \
+#     --substitutions=_REGION=asia-northeast3,_TAG=v1 \
+#     .
+#
+# 외부 docker 빌드 환경이 없거나 로컬에 docker가 없을 때 권장.
+
+substitutions:
+  _REGION: asia-northeast3
+  _TAG: v1
+  _PROJECT_ID: kis-gemini-common-prod
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --platform=linux/amd64
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/scc-forwarder/forwarder:${_TAG}
+      - -t
+      - ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/scc-forwarder/forwarder:latest
+      - .
+
+images:
+  - ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/scc-forwarder/forwarder:${_TAG}
+  - ${_REGION}-docker.pkg.dev/${_PROJECT_ID}/scc-forwarder/forwarder:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

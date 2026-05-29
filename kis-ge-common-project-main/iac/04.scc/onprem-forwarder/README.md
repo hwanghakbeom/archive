@@ -56,16 +56,29 @@ gcloud compute addresses describe scc-forwarder-egress-ip \
 
 ### 3. 컨테이너 이미지 빌드 + 푸시
 
-`forwarder/` 디렉터리에 다음 구조로 앱 코드 작성 (예시):
+앱 코드는 본 모듈 내 `forwarder/` 서브디렉터리에 포함되어 있음:
 
 ```
 forwarder/
-├── Dockerfile
-├── requirements.txt   # google-cloud-securitycenter, requests
-└── main.py            # SCC list + on-prem POST
+├── Dockerfile          # python:3.12-slim + entrypoint
+├── requirements.txt    # google-cloud-securitycenter, requests
+├── main.py             # SCC v2 list_findings → batched HTTPS POST
+├── cloudbuild.yaml     # gcloud builds submit 용
+└── .dockerignore
 ```
 
-빌드 + 푸시 (placeholder가 아닌 실제 이미지):
+**(권장) Cloud Build로 빌드 + 푸시** — 외부 docker 환경 불필요, 외부망 차단 환경에서도 동작:
+
+```bash
+cd iac/04.scc/onprem-forwarder/forwarder/
+gcloud builds submit \
+  --config=cloudbuild.yaml \
+  --project=kis-gemini-common-prod \
+  --substitutions=_REGION=asia-northeast3,_TAG=v1 \
+  .
+```
+
+**또는 로컬 docker로:**
 
 ```bash
 PROJECT=kis-gemini-common-prod
@@ -73,19 +86,11 @@ REGION=asia-northeast3
 
 gcloud auth configure-docker ${REGION}-docker.pkg.dev
 
-cd forwarder/
+cd iac/04.scc/onprem-forwarder/forwarder/
 docker buildx build --platform linux/amd64 \
   -t ${REGION}-docker.pkg.dev/${PROJECT}/scc-forwarder/forwarder:v1 .
 
 docker push ${REGION}-docker.pkg.dev/${PROJECT}/scc-forwarder/forwarder:v1
-```
-
-또는 Cloud Build로:
-
-```bash
-gcloud builds submit ./forwarder \
-  --tag=${REGION}-docker.pkg.dev/${PROJECT}/scc-forwarder/forwarder:v1 \
-  --project=${PROJECT}
 ```
 
 ### 4. image_uri 변경 + 재apply
@@ -124,13 +129,41 @@ gcloud logging read \
 | `SCC_FILTER` | findings 쿼리 필터 | `state="ACTIVE" AND severity="HIGH"` |
 | `ONPREM_ENDPOINT` | on-prem 수신 URL | `https://siem.internal.koreainvestment.com/scc-ingest` |
 | `LOOKBACK_MINUTES` | 조회 시간 범위 | `75` |
+| `ONPREM_AUTH_HEADER` | (선택) on-prem 인증 헤더 | `Authorization: Bearer xxx` |
+| `BATCH_SIZE` | 배치당 finding 수 | `100` |
+| `HTTP_TIMEOUT_SEC` | POST 타임아웃 | `30` |
+| `HTTP_RETRIES` | POST 재시도 횟수 (exponential backoff) | `3` |
 
 앱은 다음을 수행:
 1. SCC v2 API `organizations/{ORG_ID}/sources/-/findings.list` 호출
 2. filter = `SCC_FILTER` AND `event_time > (now - LOOKBACK_MINUTES)`
 3. paginated 결과 수집
-4. JSON 배열로 묶어 `ONPREM_ENDPOINT`에 HTTPS POST
-5. 성공: exit 0 / 실패: exit non-zero (Cloud Run Job 재시도 1회)
+4. `BATCH_SIZE`개씩 묶어 `ONPREM_ENDPOINT`에 HTTPS POST (재시도 + backoff)
+5. 성공: exit 0 / 부분 실패: exit 2 (Cloud Run Job max_retries=1로 1회 재시도)
+
+POST 페이로드 (JSON):
+```json
+{
+  "org_id": "457872813001",
+  "exported_at": "2026-05-29T01:00:00.000+00:00",
+  "count": 42,
+  "findings": [
+    {
+      "name": "organizations/.../findings/...",
+      "category": "PUBLIC_BUCKET_ACL",
+      "severity": "HIGH",
+      "state": "ACTIVE",
+      "resource_name": "//storage.googleapis.com/projects/_/buckets/xxx",
+      "event_time": "2026-05-29T00:55:23+00:00",
+      "create_time": "2026-05-29T00:55:23+00:00",
+      "description": "...",
+      "external_uri": "https://...",
+      "finding_class": "MISCONFIGURATION",
+      "source_properties": { "...": "..." }
+    }
+  ]
+}
+```
 
 ## 인증 / 보안
 
