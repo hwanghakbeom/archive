@@ -71,9 +71,9 @@ variable "min_instance_count" {
 }
 
 variable "max_instance_count" {
-  description = "최대 인스턴스 수. SCC finding burst 대비."
+  description = "최대 인스턴스 수. SCC finding burst 대비. Direct VPC egress는 인스턴스당 subnet IP 1개를 소모하므로 vpc_cidr(/28 = 가용 ~11~12개) 한도 내로 제한."
   type        = number
-  default     = 10
+  default     = 2
 }
 
 # === Network ===

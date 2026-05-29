@@ -325,9 +325,9 @@ variable "scc_forwarder_min_instance_count" {
 }
 
 variable "scc_forwarder_max_instance_count" {
-  description = "Cloud Run Service 최대 인스턴스 수. SCC finding burst 대응."
+  description = "Cloud Run Service 최대 인스턴스 수. SCC finding burst 대응. Direct VPC egress는 인스턴스당 subnet IP 1개를 소모하므로 scc_forwarder_vpc_cidr(/28 = 가용 ~11~12개) 한도 내로 제한."
   type        = number
-  default     = 10
+  default     = 2
 }
 
 variable "scc_forwarder_vpc_cidr" {
