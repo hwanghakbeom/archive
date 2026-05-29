@@ -84,3 +84,22 @@ variable "job_cpu" {
   type        = string
   default     = "1"
 }
+
+# === Secret Manager 연동 (on-prem 인증 헤더) ===
+variable "enable_secret" {
+  description = "Secret Manager 시크릿 생성 + Cloud Run Job 환경변수 주입 활성화. false면 Cloud Run Job에 ONPREM_AUTH_HEADER ENV 미주입."
+  type        = bool
+  default     = false
+}
+
+variable "secret_id" {
+  description = "Secret Manager secret_id (project 내 유니크). 시크릿 버전은 별도 명령으로 추가."
+  type        = string
+  default     = "scc-forwarder-onprem-auth"
+}
+
+variable "secret_env_var_name" {
+  description = "Cloud Run Job 컨테이너에 주입할 ENV 이름. 앱(main.py)이 ONPREM_AUTH_HEADER를 사용함."
+  type        = string
+  default     = "ONPREM_AUTH_HEADER"
+}

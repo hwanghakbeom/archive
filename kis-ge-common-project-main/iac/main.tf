@@ -158,4 +158,9 @@ module "scc_onprem_forwarder" {
   lookback_minutes = var.scc_forwarder_lookback_minutes
   vpc_cidr         = var.scc_forwarder_vpc_cidr
   egress_ip_name   = var.scc_forwarder_egress_ip_name
+
+  # Secret Manager (on-prem 인증 헤더)
+  enable_secret       = var.scc_forwarder_enable_secret
+  secret_id           = var.scc_forwarder_secret_id
+  secret_env_var_name = var.scc_forwarder_secret_env_var_name
 }

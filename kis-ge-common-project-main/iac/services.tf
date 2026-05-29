@@ -33,6 +33,7 @@ locals {
     "cloudscheduler.googleapis.com",   # cron 트리거
     "artifactregistry.googleapis.com", # 컨테이너 이미지 repo
     "compute.googleapis.com",          # VPC / Router / NAT / 고정 IP
+    "secretmanager.googleapis.com",    # on-prem 인증 시크릿
   ]
 }
 

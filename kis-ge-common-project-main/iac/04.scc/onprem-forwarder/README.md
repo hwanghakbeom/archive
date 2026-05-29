@@ -169,8 +169,51 @@ POST 페이로드 (JSON):
 
 - Cloud Run Job ↔ SCC API: SA의 `roles/securitycenter.findingsViewer` (org-level)
 - Cloud Scheduler ↔ Cloud Run Job: SA의 `roles/run.invoker` (resource-level)
-- Cloud Run Job ↔ on-prem: HTTPS + (선택) mTLS / Bearer / HMAC 헤더는 앱 구현
-  - Secret Manager에 토큰 저장 후 Cloud Run Job에 secret 마운트 권장 (이 모듈에 추가하려면 var 확장 필요)
+- Cloud Run Job ↔ on-prem: HTTPS + (선택) Bearer/HMAC/Basic 헤더는 Secret Manager 경유
+
+### Secret Manager 연동 (on-prem 인증 헤더)
+
+`scc_forwarder_enable_secret = true`로 두고 apply하면 시크릿 **자원만** 생성됨 (버전/값 없음).
+시크릿 버전은 평문이 terraform state에 남지 않도록 별도 명령으로 추가:
+
+```bash
+# Bearer 토큰
+echo -n "Authorization: Bearer eyJhbGc..." | gcloud secrets versions add \
+  scc-forwarder-onprem-auth --data-file=- \
+  --project=kis-gemini-common-prod
+
+# HMAC 키 (앱이 X-Signature 헤더로 인식하도록)
+echo -n "X-Signature: abc123def..." | gcloud secrets versions add \
+  scc-forwarder-onprem-auth --data-file=- \
+  --project=kis-gemini-common-prod
+
+# Basic auth
+echo -n "Authorization: Basic $(echo -n 'user:pass' | base64)" | gcloud secrets versions add \
+  scc-forwarder-onprem-auth --data-file=- \
+  --project=kis-gemini-common-prod
+```
+
+> 값 형식: `key:value` (":"있으면 해당 헤더) 또는 `value` (":"없으면 Authorization 헤더)로 main.py가 자동 인식.
+
+Cloud Run Job 컨테이너에 `ONPREM_AUTH_HEADER` ENV로 자동 마운트됨 (`version=latest`).
+Job 실행 시점에 최신 버전을 읽으므로 시크릿 rotate 시 Cloud Run 재배포 불필요.
+
+시크릿 값 교체:
+```bash
+echo -n "Authorization: Bearer <NEW_TOKEN>" | gcloud secrets versions add \
+  scc-forwarder-onprem-auth --data-file=- \
+  --project=kis-gemini-common-prod
+
+# (선택) 옛 버전 비활성화
+gcloud secrets versions disable <OLD_VERSION_NUMBER> \
+  --secret=scc-forwarder-onprem-auth --project=kis-gemini-common-prod
+```
+
+시크릿 값 확인 (운영자가 권한 있을 때 디버깅용):
+```bash
+gcloud secrets versions access latest \
+  --secret=scc-forwarder-onprem-auth --project=kis-gemini-common-prod
+```
 
 ## 정지 / 비활성화
 

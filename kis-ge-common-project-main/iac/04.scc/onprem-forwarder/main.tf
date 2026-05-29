@@ -69,6 +69,21 @@ resource "google_cloud_run_v2_job" "scc_forwarder" {
           name  = "LOOKBACK_MINUTES"
           value = tostring(var.lookback_minutes)
         }
+
+        # Secret Manager에서 on-prem 인증 헤더 주입.
+        # var.enable_secret=false면 ENV 미주입 → 앱은 ONPREM_AUTH_HEADER 빈 값으로 동작 (헤더 없이 POST).
+        dynamic "env" {
+          for_each = var.enable_secret ? [1] : []
+          content {
+            name = var.secret_env_var_name
+            value_source {
+              secret_key_ref {
+                secret  = google_secret_manager_secret.onprem_auth[0].secret_id
+                version = "latest"
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -85,6 +100,7 @@ resource "google_cloud_run_v2_job" "scc_forwarder" {
   depends_on = [
     google_compute_router_nat.scc_egress,
     google_organization_iam_member.scc_findings_viewer,
+    google_secret_manager_secret_iam_member.forwarder_accessor,
   ]
 }
 

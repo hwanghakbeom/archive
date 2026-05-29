@@ -22,3 +22,18 @@ output "forwarder_service_account_email" {
   description = "Cloud Run Job 실행용 SA. (debugging용)"
   value       = length(google_service_account.scc_forwarder) > 0 ? google_service_account.scc_forwarder[0].email : null
 }
+
+output "secret_id" {
+  description = "On-prem 인증 시크릿 ID. 시크릿 버전 추가 명령에 사용."
+  value       = length(google_secret_manager_secret.onprem_auth) > 0 ? google_secret_manager_secret.onprem_auth[0].secret_id : null
+}
+
+output "add_secret_version_command" {
+  description = "Secret 첫 버전 추가 명령 (헬퍼)."
+  value = length(google_secret_manager_secret.onprem_auth) > 0 ? join(" ", [
+    "echo -n '<HEADER_VALUE_HERE>' | gcloud secrets versions add",
+    google_secret_manager_secret.onprem_auth[0].secret_id,
+    "--data-file=-",
+    "--project=${var.project_id}"
+  ]) : null
+}
