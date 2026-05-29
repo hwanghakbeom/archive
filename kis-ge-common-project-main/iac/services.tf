@@ -29,11 +29,12 @@ locals {
     "cloudkms.googleapis.com",        # KMS
     "datacatalog.googleapis.com",     # Data Catalog
     # ─── Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT 고정 IP)
-    "run.googleapis.com",              # Cloud Run Jobs
-    "cloudscheduler.googleapis.com",   # cron 트리거
+    "run.googleapis.com",              # Cloud Run Service (PubSub push 수신)
+    "cloudscheduler.googleapis.com",   # (옛 Job 구조 잔여 — 다음 destroy 후 제거 가능)
     "artifactregistry.googleapis.com", # 컨테이너 이미지 repo
     "compute.googleapis.com",          # VPC / Router / NAT / 고정 IP
-    "secretmanager.googleapis.com",    # on-prem 인증 시크릿
+    "secretmanager.googleapis.com",    # (옛 구조 잔여 — 다음 destroy 후 제거 가능)
+    "cloudbuild.googleapis.com",       # forwarder 이미지 빌드 (build-forwarder-image job)
   ]
 }
 

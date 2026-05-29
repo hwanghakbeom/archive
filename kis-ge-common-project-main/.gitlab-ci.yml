@@ -480,6 +480,65 @@ apply-scc-onprem-forwarder:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
+# forwarder 컨테이너 이미지를 Cloud Build로 빌드 + AR push.
+# 로컬 docker 불필요 — Cloud Build가 GCP 쪽에서 처리. CI는 wrapper 역할.
+#
+# 사전 조건:
+#   - cloudbuild.googleapis.com API enable (apply-services에 포함됨)
+#   - SA에 roles/cloudbuild.builds.editor + roles/storage.admin (Cloud Build staging bucket)
+#     + roles/artifactregistry.writer (이미지 push)
+#   - apply-scc-onprem-forwarder가 한 번 돌아서 AR repo 존재해야 함
+#
+# Run Pipeline 변수:
+#   IMAGE_TAG  : 빌드 태그 (예: v1, v2, $(date +%Y%m%d)). 기본 v1.
+#
+# 빌드 후 출력된 URI를 terraform.tfvars의 scc_forwarder_image_uri로 복사 → 재apply하면
+# Cloud Run Service revision이 새 이미지로 갱신됨.
+build-forwarder-image:
+  stage: scc
+  variables:
+    IMAGE_TAG: "v1"
+    BUILD_PROJECT: "kis-gemini-common-prod"
+    BUILD_REGION: "asia-northeast3"
+  script:
+    - |
+      set -e
+      # gcloud 설치 (ECR 이미지에 미포함) — unlock-state 패턴 재사용
+      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
+      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
+      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
+      tar -xzf /tmp/gcloud.tar.gz -C /tmp
+      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+      gcloud auth activate-service-account --key-file=/tmp/sa.json
+
+      # Cloud Build 트리거 (forwarder/ 디렉터리의 cloudbuild.yaml 사용)
+      cd iac/04.scc/onprem-forwarder/forwarder/
+      echo "▸ Cloud Build 시작: project=${BUILD_PROJECT} region=${BUILD_REGION} tag=${IMAGE_TAG}"
+      gcloud builds submit \
+        --config=cloudbuild.yaml \
+        --project="${BUILD_PROJECT}" \
+        --substitutions=_REGION="${BUILD_REGION}",_TAG="${IMAGE_TAG}",_PROJECT_ID="${BUILD_PROJECT}" \
+        .
+
+      IMAGE_URI="${BUILD_REGION}-docker.pkg.dev/${BUILD_PROJECT}/scc-forwarder/forwarder:${IMAGE_TAG}"
+      echo ""
+      echo "================================================================"
+      echo "✅ 이미지 빌드 + AR push 완료"
+      echo ""
+      echo "다음 줄을 terraform.tfvars 의 scc_forwarder_image_uri 로 복사:"
+      echo "  scc_forwarder_image_uri = \"${IMAGE_URI}\""
+      echo ""
+      echo "그 다음 apply-scc-onprem-forwarder 재실행 → Cloud Run Service revision 갱신."
+      echo "================================================================"
+
+      # 정리
+      rm -f /tmp/sa.json
+      rm -rf /tmp/google-cloud-sdk /tmp/gcloud.tar.gz
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
 # 배포된 forwarder의 운영 정보 출력 (고정 IP / AR repo / SA / 시크릿 ID).
 # on-prem 방화벽 화이트리스트 등록 + 이미지 push 명령 헬퍼 확인용.
 apply-scc-forwarder-info:
