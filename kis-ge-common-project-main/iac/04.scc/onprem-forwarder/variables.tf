@@ -78,9 +78,9 @@ variable "max_instance_count" {
 
 # === Network ===
 variable "vpc_cidr" {
-  description = "Direct VPC egress용 subnet CIDR. on-prem 사설망과 겹치지 않게."
+  description = "Direct VPC egress용 subnet CIDR. Cloud Run Direct VPC egress는 인스턴스+롤아웃 IP가 필요해 /26 이상 권장(/28은 'no sufficient ip' health check 실패). on-prem 사설망과 겹치지 않게."
   type        = string
-  default     = "10.200.0.0/28"
+  default     = "10.200.0.0/26"
 }
 
 variable "egress_ip_name" {

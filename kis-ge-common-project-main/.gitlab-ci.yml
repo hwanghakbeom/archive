@@ -481,33 +481,37 @@ apply-scc-onprem-forwarder:
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ───────────────────────────────────────────────────────────────────
-# [임시] scc forwarder state 복구 — taint 제거 + live 동기화(refresh).
+# [임시] scc forwarder 복구(heal) — IP 부족으로 배포 실패한 서비스 정상화.
 #
-# 증상 1: "...scc_forwarder[0] is tainted, so must be replaced" → 강제 replace.
-#   replace의 destroy 단계가 state의 deletion_protection=true 를 읽어 막힘.
-# 증상 2: "push_config.0.push_endpoint is required, but no definition was found"
-#   → service.uri 가 state에서 null. CI가 -refresh=false 라 live에서 안 읽어옴.
+# 근본 원인: Direct VPC egress subnet이 /28 → IP 부족 → Cloud Run 배포 health
+#   check 실패("error code 9 / no sufficient ip") → 리소스 tainted →
+#   강제 replace → replace의 destroy가 deletion_protection=true 에 막힘 …의 연쇄.
 #
-# 해결:
-#   1) terraform untaint  → taint 표시 제거 (replace 사라짐, state-only)
-#   2) apply -refresh-only → live 서비스 읽어 .uri 등 computed 값을 state에 복구
-#      (-refresh=false 로 stale-null 된 uri 채움. 인프라 변경 없음, state만 갱신)
-#   3) plan(refresh 허용)으로 replace/에러 사라졌는지 확인
+# 선행(코드, 이미 반영): subnet /28→/26, deletion_protection=false(임시).
 #
-# 사용 순서:
-#   1) 이 job 수동 실행 → state 복구
-#   2) apply-scc-onprem-forwarder 실행 → replace 없이 정상 적용 (deletion_protection=true 유지)
-#   3) 작업 종료 후 이 job 제거
-untaint-scc-forwarder:
+# 이 job이 순서대로 처리:
+#   1) untaint        — taint 제거 → in-place 업데이트 가능 (replace 강제 해제)
+#   2) refresh-only   — live 읽어 service.uri 등 computed 값 복구
+#   3) in-place apply — subnet /26 확장 + deletion_protection=false 를 state에 반영
+#                       (untaint 상태라 replace 없이 in-place. 이제 state=false)
+#   4) replace apply  — 서비스만 깨끗이 재생성. destroy는 state=false라 통과,
+#                       create는 IP 충분(/26)해 health check 통과 → 정상화.
+#
+# 완료 후: 정상 확인 → deletion_protection=true 복원 + 이 job 제거.
+heal-scc-forwarder:
   stage: scc
   <<: *tf_template
+  variables:
+    SVC: 'module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]'
   script:
-    # 1) taint 제거 (target에 [0] 있어 glob 방지 위해 따옴표 필수. 이미 정상이면 || true).
-    - terraform untaint 'module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]' || true
-    # 2) live 동기화 — service.uri 등 비어버린 computed 값을 state에 복구 (인프라 변경 X).
+    # 1) taint 제거 (이미 정상이면 무시).
+    - terraform untaint "$SVC" || true
+    # 2) live 동기화 — 비어버린 computed(uri 등) state 복구.
     - terraform apply -refresh-only -auto-approve -input=false -target=module.scc_onprem_forwarder
-    # 3) 확인 — replace/에러 사라졌는지 plan으로 검증 (refresh 허용, 적용은 안 함).
-    - terraform plan -input=false -target=module.scc_onprem_forwarder
+    # 3) subnet /26 확장 + deletion_protection=false 를 in-place로 state에 반영.
+    - terraform apply -auto-approve -input=false -target=module.scc_onprem_forwarder
+    # 4) 서비스만 clean 재생성 — IP 충분해 health check 통과.
+    - terraform apply -auto-approve -input=false -replace="$SVC" -target=module.scc_onprem_forwarder
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
