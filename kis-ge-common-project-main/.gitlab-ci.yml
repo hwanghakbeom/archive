@@ -481,28 +481,28 @@ apply-scc-onprem-forwarder:
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ───────────────────────────────────────────────────────────────────
-# [임시] deletion_protection true→false 만 state에 반영 (replace/destroy 없이).
-# "cannot destroy ... deletion_protection" 에러 해제용.
+# [임시] tainted 된 Cloud Run Service 의 taint 제거.
 #
-# 배경: google provider는 deletion_protection=false 가 state에 먼저 박힌 뒤에야
-#   destroy/replace를 허용. pure destroy는 state 값(true)을 읽으므로, config만
-#   false로 바꿔선 같은 apply에서 또 막힘 → 이 job으로 in-place 업데이트만 먼저 수행.
+# 증상: plan에 "...scc_forwarder[0] is tainted, so must be replaced" → 강제 replace.
+#   replace의 destroy 단계는 state의 deletion_protection=true 를 읽어 막힘
+#   ("cannot destroy ... deletion_protection"). config를 false로 바꿔도 동일.
+#
+# 해결: 서비스가 실제로 정상이면 taint 표시만 지우면 replace 자체가 사라짐.
+#   untaint는 state-only 연산(인프라 변경 없음). 이후 apply는 in-place/no-op.
 #
 # 사용 순서:
-#   1) (선행) main에 deletion_protection=false 반영된 상태  ← 이미 완료
-#   2) 이 job 수동 실행 → 서비스 리소스만 targeted in-place update (true→false)
-#      ※ plan이 in-place update 1건이어야 함. -/+ (replace)면 멈추고 원인 확인.
-#   3) 본 작업(apply-scc-onprem-forwarder 또는 destroy) 실행 → 이제 통과
-#   4) 작업 종료 후 deletion_protection=true 복원 + 이 job 제거
-unprotect-scc-forwarder:
+#   1) 이 job 수동 실행 → taint 제거
+#   2) apply-scc-onprem-forwarder 실행 → replace 없이 정상 적용 (deletion_protection=true 유지)
+#   3) 작업 종료 후 이 job 제거
+untaint-scc-forwarder:
   stage: scc
   <<: *tf_template
-  variables:
-    TF_TARGET: 'module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]'
   script:
     # target에 [0]이 있어 shell glob 방지를 위해 따옴표 필수.
-    - terraform plan -input=false -refresh=false -target="$TF_TARGET" -out=tfplan.binary
-    - terraform apply -input=false -auto-approve tfplan.binary
+    # 이미 untaint 상태여도 실패하지 않도록 || true.
+    - terraform untaint 'module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]' || true
+    # 확인: 이제 replace가 사라졌는지 plan으로 검증 (적용은 안 함).
+    - terraform plan -input=false -refresh=false -target='module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]'
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
