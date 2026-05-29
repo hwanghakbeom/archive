@@ -67,6 +67,12 @@ variable "egress_ip_name" {
   default     = "scc-forwarder-egress-ip"
 }
 
+variable "use_existing_egress_ip" {
+  description = "이미 예약된 외부 정적 IP를 data source로 lookup해 NAT에 attach (gcloud로 사전 reserve된 IP 재사용). false면 terraform이 신규 생성."
+  type        = bool
+  default     = true
+}
+
 variable "job_timeout_seconds" {
   description = "Cloud Run Job 타임아웃 (s)."
   type        = number

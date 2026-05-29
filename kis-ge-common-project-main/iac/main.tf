@@ -147,17 +147,18 @@ module "scc_notifications" {
 module "scc_onprem_forwarder" {
   source = "./04.scc/onprem-forwarder"
 
-  enable           = var.enable_scc_onprem_forwarder
-  project_id       = var.ops_project_id
-  org_id           = var.org_id
-  region           = var.region_primary
-  image_uri        = var.scc_forwarder_image_uri
-  schedule_cron    = var.scc_forwarder_schedule_cron
-  scc_filter       = var.scc_forwarder_filter
-  onprem_endpoint  = var.scc_forwarder_onprem_endpoint
-  lookback_minutes = var.scc_forwarder_lookback_minutes
-  vpc_cidr         = var.scc_forwarder_vpc_cidr
-  egress_ip_name   = var.scc_forwarder_egress_ip_name
+  enable                 = var.enable_scc_onprem_forwarder
+  project_id             = var.ops_project_id
+  org_id                 = var.org_id
+  region                 = var.region_primary
+  image_uri              = var.scc_forwarder_image_uri
+  schedule_cron          = var.scc_forwarder_schedule_cron
+  scc_filter             = var.scc_forwarder_filter
+  onprem_endpoint        = var.scc_forwarder_onprem_endpoint
+  lookback_minutes       = var.scc_forwarder_lookback_minutes
+  vpc_cidr               = var.scc_forwarder_vpc_cidr
+  egress_ip_name         = var.scc_forwarder_egress_ip_name
+  use_existing_egress_ip = var.scc_forwarder_use_existing_egress_ip
 
   # Secret Manager (on-prem 인증 헤더)
   enable_secret       = var.scc_forwarder_enable_secret

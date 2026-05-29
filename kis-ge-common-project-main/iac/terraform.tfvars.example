@@ -148,6 +148,9 @@ scc_forwarder_onprem_endpoint  = "" # 예: "https://siem.internal.koreainvestmen
 scc_forwarder_lookback_minutes = 75
 scc_forwarder_vpc_cidr         = "10.200.0.0/28" # on-prem 사설망과 겹치지 않게
 scc_forwarder_egress_ip_name   = "scc-forwarder-egress-ip"
+# gcloud로 미리 reserve된 IP(scc-forwarder-egress-ip)를 data로 lookup해 NAT에 attach.
+# 신규 IP 생성하려면 false로 변경. on-prem 방화벽 화이트리스트는 둘 다 동일 IP 이름 기반.
+scc_forwarder_use_existing_egress_ip = true
 
 # Secret Manager — on-prem 인증 헤더 (Bearer/HMAC 등) 주입.
 # enable=true로 두고 apply하면 시크릿 자원만 생성됨 (값 없음).

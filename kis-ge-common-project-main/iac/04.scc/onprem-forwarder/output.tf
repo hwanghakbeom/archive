@@ -1,6 +1,6 @@
 output "egress_ip_address" {
-  description = "Cloud NAT 정적 외부 IP. on-prem 방화벽에 화이트리스트로 등록."
-  value       = length(google_compute_address.scc_egress_nat) > 0 ? google_compute_address.scc_egress_nat[0].address : null
+  description = "Cloud NAT 정적 외부 IP. on-prem 방화벽에 화이트리스트로 등록. (data lookup or 신규 생성, enable=false면 null)"
+  value       = local.egress_ip_address
 }
 
 output "artifact_registry_repo" {

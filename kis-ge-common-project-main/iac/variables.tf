@@ -336,6 +336,12 @@ variable "scc_forwarder_egress_ip_name" {
   default     = "scc-forwarder-egress-ip"
 }
 
+variable "scc_forwarder_use_existing_egress_ip" {
+  description = "기존 예약된 IP(같은 이름)를 lookup해 NAT에 attach. false면 terraform이 신규 생성."
+  type        = bool
+  default     = true
+}
+
 # Secret Manager 연동 — on-prem 인증 헤더(Bearer/HMAC 등). 값은 별도 명령으로 추가.
 variable "scc_forwarder_enable_secret" {
   description = "Secret Manager 시크릿 생성 + Cloud Run Job ENV 주입 활성화."
