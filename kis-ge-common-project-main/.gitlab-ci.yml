@@ -503,13 +503,19 @@ heal-scc-forwarder:
   <<: *tf_template
   variables:
     SVC: 'module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]'
+    SUBNET: 'module.scc_onprem_forwarder.google_compute_subnetwork.scc_egress[0]'
   script:
     # 1) taint 제거 (이미 정상이면 무시).
     - terraform untaint "$SVC" || true
     # 2) live 동기화 — 비어버린 computed(uri 등) state 복구.
     - terraform apply -refresh-only -auto-approve -input=false -target=module.scc_onprem_forwarder
-    # 3) subnet /26 확장 + deletion_protection=false 를 in-place로 state에 반영.
+    # 3) subnet /24 확장 + deletion_protection=false 를 in-place로 state에 반영.
+    #    ※ subnet이 -/+(replace)면 in-use라 실패할 수 있음 → 로그 확인.
     - terraform apply -auto-approve -input=false -target=module.scc_onprem_forwarder
+    # 3-검증) subnet이 실제로 /24로 확장됐는지 확인 (안 됐으면 IP 부족 계속됨).
+    - echo "================ subnet CIDR 확인 ================"
+    - terraform state show "$SUBNET" | grep ip_cidr_range || true
+    - echo "=================================================="
     # 4) 서비스만 clean 재생성 — IP 충분해 health check 통과.
     - terraform apply -auto-approve -input=false -replace="$SVC" -target=module.scc_onprem_forwarder
   when: manual

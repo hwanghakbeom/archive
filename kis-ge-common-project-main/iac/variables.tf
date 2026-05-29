@@ -333,7 +333,7 @@ variable "scc_forwarder_max_instance_count" {
 variable "scc_forwarder_vpc_cidr" {
   description = "Direct VPC egress용 subnet CIDR. Cloud Run Direct VPC egress는 인스턴스 + revision 롤아웃 IP가 필요해 /26 이상 권장(/28은 health check 'no sufficient ip' 실패). on-prem 사설망과 겹치지 않게 설정."
   type        = string
-  default     = "10.200.0.0/26"
+  default     = "10.200.0.0/24"
 }
 
 variable "scc_forwarder_egress_ip_name" {

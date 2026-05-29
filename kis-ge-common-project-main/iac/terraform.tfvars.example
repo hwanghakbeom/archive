@@ -147,7 +147,7 @@ scc_forwarder_onprem_port        = 1514
 scc_forwarder_tcp_timeout_sec    = 10
 scc_forwarder_min_instance_count = 0
 scc_forwarder_max_instance_count = 2   # Direct VPC egress IP 소모 제한 (/28 subnet)
-scc_forwarder_vpc_cidr           = "10.200.0.0/26"   # /28은 Direct VPC egress health check 실패 (no sufficient ip)
+scc_forwarder_vpc_cidr           = "10.200.0.0/24"   # /28은 Direct VPC egress health check 실패 (no sufficient ip)
 # 빈 문자열 → region(asia-northeast3)의 reserved IP가 1개일 때 자동 선택.
 # 다중 IP면 정확한 이름 명시 필요. use_existing=false면 이 이름으로 신규 생성.
 scc_forwarder_egress_ip_name         = ""
