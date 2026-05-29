@@ -481,28 +481,33 @@ apply-scc-onprem-forwarder:
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
 # ───────────────────────────────────────────────────────────────────
-# [임시] tainted 된 Cloud Run Service 의 taint 제거.
+# [임시] scc forwarder state 복구 — taint 제거 + live 동기화(refresh).
 #
-# 증상: plan에 "...scc_forwarder[0] is tainted, so must be replaced" → 강제 replace.
-#   replace의 destroy 단계는 state의 deletion_protection=true 를 읽어 막힘
-#   ("cannot destroy ... deletion_protection"). config를 false로 바꿔도 동일.
+# 증상 1: "...scc_forwarder[0] is tainted, so must be replaced" → 강제 replace.
+#   replace의 destroy 단계가 state의 deletion_protection=true 를 읽어 막힘.
+# 증상 2: "push_config.0.push_endpoint is required, but no definition was found"
+#   → service.uri 가 state에서 null. CI가 -refresh=false 라 live에서 안 읽어옴.
 #
-# 해결: 서비스가 실제로 정상이면 taint 표시만 지우면 replace 자체가 사라짐.
-#   untaint는 state-only 연산(인프라 변경 없음). 이후 apply는 in-place/no-op.
+# 해결:
+#   1) terraform untaint  → taint 표시 제거 (replace 사라짐, state-only)
+#   2) apply -refresh-only → live 서비스 읽어 .uri 등 computed 값을 state에 복구
+#      (-refresh=false 로 stale-null 된 uri 채움. 인프라 변경 없음, state만 갱신)
+#   3) plan(refresh 허용)으로 replace/에러 사라졌는지 확인
 #
 # 사용 순서:
-#   1) 이 job 수동 실행 → taint 제거
+#   1) 이 job 수동 실행 → state 복구
 #   2) apply-scc-onprem-forwarder 실행 → replace 없이 정상 적용 (deletion_protection=true 유지)
 #   3) 작업 종료 후 이 job 제거
 untaint-scc-forwarder:
   stage: scc
   <<: *tf_template
   script:
-    # target에 [0]이 있어 shell glob 방지를 위해 따옴표 필수.
-    # 이미 untaint 상태여도 실패하지 않도록 || true.
+    # 1) taint 제거 (target에 [0] 있어 glob 방지 위해 따옴표 필수. 이미 정상이면 || true).
     - terraform untaint 'module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]' || true
-    # 확인: 이제 replace가 사라졌는지 plan으로 검증 (적용은 안 함).
-    - terraform plan -input=false -refresh=false -target='module.scc_onprem_forwarder.google_cloud_run_v2_service.scc_forwarder[0]'
+    # 2) live 동기화 — service.uri 등 비어버린 computed 값을 state에 복구 (인프라 변경 X).
+    - terraform apply -refresh-only -auto-approve -input=false -target=module.scc_onprem_forwarder
+    # 3) 확인 — replace/에러 사라졌는지 plan으로 검증 (refresh 허용, 적용은 안 함).
+    - terraform plan -input=false -target=module.scc_onprem_forwarder
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
