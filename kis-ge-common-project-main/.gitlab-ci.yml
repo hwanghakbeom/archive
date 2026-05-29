@@ -248,6 +248,7 @@ deploy-all:
     - terraform apply -input=false -refresh=false -auto-approve -target=module.org_audit_config
     - terraform apply -input=false -refresh=false -auto-approve -target=module.dlp_discovery
     - terraform apply -input=false -refresh=false -auto-approve -target=module.scc_notifications
+    - terraform apply -input=false -refresh=false -auto-approve -target=module.scc_onprem_forwarder
     - terraform plan -input=false   # 최종 확인 (domain_policies 제외 상태에서 no-op이어야 함)
   when: manual
   rules:
@@ -445,6 +446,63 @@ apply-scc-notifications:
   variables:
     TF_TARGET: module.scc_notifications
   script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# SCC On-prem Forwarder — VPC/NAT/고정 IP/AR repo/Cloud Run Job/Scheduler/Secret.
+# 사전 조건:
+#   1. apply-services 1회 실행 (run/cloudscheduler/artifactregistry/compute/secretmanager API enable)
+#   2. terraform.tfvars 에서 enable_scc_onprem_forwarder = true 로 변경 후 push
+# 활성화 후:
+#   - apply-scc-forwarder-info job 으로 고정 IP 확인 → on-prem 방화벽 화이트리스트
+#   - iac/04.scc/onprem-forwarder/forwarder/ 에서 이미지 빌드 + AR push
+#   - scc_forwarder_image_uri 변경 + 재apply
+apply-scc-onprem-forwarder:
+  stage: scc
+  <<: *tf_template
+  variables:
+    TF_TARGET: module.scc_onprem_forwarder
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# 배포된 forwarder의 운영 정보 출력 (고정 IP / AR repo / SA / 시크릿 ID).
+# on-prem 방화벽 화이트리스트 등록 + 이미지 push 명령 헬퍼 확인용.
+apply-scc-forwarder-info:
+  stage: scc
+  <<: *tf_template
+  script:
+    - echo "================ SCC Forwarder 배포 상태 ================"
+    - terraform output scc_forwarder_egress_ip          || echo "(egress_ip output 없음 — enable_scc_onprem_forwarder=true + apply 선행 필요)"
+    - terraform output scc_forwarder_artifact_registry  || true
+    - terraform output scc_forwarder_job_name           || true
+    - terraform output scc_forwarder_service_account    || true
+    - terraform output scc_forwarder_secret_id          || true
+    - echo ""
+    - echo "================ 운영 명령 헬퍼 ================"
+    - 'echo "[1] 이미지 빌드 + AR push:"'
+    - 'echo "    cd iac/04.scc/onprem-forwarder/forwarder/"'
+    - 'echo "    gcloud builds submit --config=cloudbuild.yaml \\"'
+    - 'echo "      --project=kis-gemini-common-prod \\"'
+    - 'echo "      --substitutions=_REGION=asia-northeast3,_TAG=v1 ."'
+    - 'echo ""'
+    - 'echo "[2] Cloud Run Job 수동 실행 (테스트):"'
+    - 'echo "    gcloud run jobs execute scc-forwarder \\"'
+    - 'echo "      --region=asia-northeast3 \\"'
+    - 'echo "      --project=kis-gemini-common-prod --wait"'
+    - 'echo ""'
+    - 'echo "[3] Secret 첫 버전 등록 (enable_secret=true 인 경우):"'
+    - 'echo "    echo -n ''Authorization: Bearer <TOKEN>'' | \\"'
+    - 'echo "      gcloud secrets versions add scc-forwarder-onprem-auth \\"'
+    - 'echo "        --data-file=- --project=kis-gemini-common-prod"'
+    - 'echo ""'
+    - 'echo "[4] Scheduler 일시 정지 / 재개:"'
+    - 'echo "    gcloud scheduler jobs pause  scc-forwarder-schedule --location=asia-northeast3 --project=kis-gemini-common-prod"'
+    - 'echo "    gcloud scheduler jobs resume scc-forwarder-schedule --location=asia-northeast3 --project=kis-gemini-common-prod"'
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
