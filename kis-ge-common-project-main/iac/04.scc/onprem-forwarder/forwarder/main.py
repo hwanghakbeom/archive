@@ -33,8 +33,8 @@ LOOKBACK_MINUTES = int(os.environ.get("LOOKBACK_MINUTES", "75"))
 # 옵션 — 앱 자체로는 인증 안 함. 필요 시 Secret Manager에서 주입.
 ONPREM_AUTH_HEADER = os.environ.get("ONPREM_AUTH_HEADER", "").strip()  # 예: "Bearer xxx"
 
-# POST 페이로드 크기 제한 (B). on-prem 수신 측 한도에 맞춰 조정.
-BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "100"))
+# 1 finding당 1 POST. on-prem 수신 측이 단건 처리 가정 — 늘리려면 ENV로 override.
+BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "1"))
 
 # HTTPS 타임아웃 / 재시도
 HTTP_TIMEOUT_SEC = int(os.environ.get("HTTP_TIMEOUT_SEC", "30"))

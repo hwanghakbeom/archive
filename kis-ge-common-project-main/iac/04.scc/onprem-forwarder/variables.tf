@@ -55,6 +55,17 @@ variable "lookback_minutes" {
   default     = 75
 }
 
+variable "batch_size" {
+  description = "한 POST 당 findings 개수. 1 = 단건 전송 (on-prem이 단건 처리 가정). 늘리면 throughput↑, 부분 실패 시 재시도 단위 커짐."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.batch_size >= 1 && var.batch_size <= 500
+    error_message = "batch_size must be 1..500."
+  }
+}
+
 variable "vpc_cidr" {
   description = "Cloud Run Direct VPC egress용 subnet CIDR. /28 권장 (16 IP만 사용)."
   type        = string

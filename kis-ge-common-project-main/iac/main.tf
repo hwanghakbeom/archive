@@ -156,6 +156,7 @@ module "scc_onprem_forwarder" {
   scc_filter             = var.scc_forwarder_filter
   onprem_endpoint        = var.scc_forwarder_onprem_endpoint
   lookback_minutes       = var.scc_forwarder_lookback_minutes
+  batch_size             = var.scc_forwarder_batch_size
   vpc_cidr               = var.scc_forwarder_vpc_cidr
   egress_ip_name         = var.scc_forwarder_egress_ip_name
   use_existing_egress_ip = var.scc_forwarder_use_existing_egress_ip

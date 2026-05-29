@@ -69,6 +69,10 @@ resource "google_cloud_run_v2_job" "scc_forwarder" {
           name  = "LOOKBACK_MINUTES"
           value = tostring(var.lookback_minutes)
         }
+        env {
+          name  = "BATCH_SIZE"
+          value = tostring(var.batch_size)
+        }
 
         # Secret Manager에서 on-prem 인증 헤더 주입.
         # var.enable_secret=false면 ENV 미주입 → 앱은 ONPREM_AUTH_HEADER 빈 값으로 동작 (헤더 없이 POST).

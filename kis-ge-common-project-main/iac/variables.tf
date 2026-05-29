@@ -324,6 +324,12 @@ variable "scc_forwarder_lookback_minutes" {
   default     = 75
 }
 
+variable "scc_forwarder_batch_size" {
+  description = "POST 한 번에 보낼 findings 수. 1 = 단건 전송 (on-prem 단건 처리)."
+  type        = number
+  default     = 1
+}
+
 variable "scc_forwarder_vpc_cidr" {
   description = "Direct VPC egress용 subnet CIDR. on-prem 사설망과 겹치지 않게 설정."
   type        = string

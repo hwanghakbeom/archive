@@ -146,6 +146,7 @@ scc_forwarder_schedule_cron    = "0 * * * *"                           # 매시 
 scc_forwarder_filter           = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
 scc_forwarder_onprem_endpoint  = "" # 예: "https://siem.internal.koreainvestment.com/scc-ingest" — 실제 endpoint 확정 후 채울 것
 scc_forwarder_lookback_minutes = 75
+scc_forwarder_batch_size       = 1     # 단건 전송 (on-prem 단건 처리 가정)
 scc_forwarder_vpc_cidr         = "10.200.0.0/28" # on-prem 사설망과 겹치지 않게
 scc_forwarder_egress_ip_name   = "scc-forwarder-egress-ip"
 # gcloud로 미리 reserve된 IP(scc-forwarder-egress-ip)를 data로 lookup해 NAT에 attach.
