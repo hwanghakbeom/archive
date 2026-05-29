@@ -47,28 +47,33 @@ output "scc_notification_config" {
   value       = module.scc_notifications.notification_config_name
 }
 
-# === Phase 6-B: SCC On-prem Forwarder ===
+# === Phase 6-B: SCC PubSub → TCP Forwarder ===
 output "scc_forwarder_egress_ip" {
   description = "Cloud NAT 정적 IP — on-prem 방화벽 화이트리스트 대상 (enable=false면 null)."
   value       = module.scc_onprem_forwarder.egress_ip_address
 }
 
 output "scc_forwarder_artifact_registry" {
-  description = "Cloud Run Job 이미지 push 대상 Artifact Registry repo URI."
+  description = "Cloud Run Service 이미지 push 대상 Artifact Registry repo URI."
   value       = module.scc_onprem_forwarder.artifact_registry_repo
 }
 
-output "scc_forwarder_job_name" {
-  description = "Cloud Run Job 이름 (수동 실행/로그 조회용)."
-  value       = module.scc_onprem_forwarder.job_name
+output "scc_forwarder_service_name" {
+  description = "Cloud Run Service 이름."
+  value       = module.scc_onprem_forwarder.service_name
+}
+
+output "scc_forwarder_service_url" {
+  description = "Cloud Run Service URL (PubSub push endpoint)."
+  value       = module.scc_onprem_forwarder.service_url
+}
+
+output "scc_forwarder_subscription_name" {
+  description = "PubSub push subscription 이름."
+  value       = module.scc_onprem_forwarder.subscription_name
 }
 
 output "scc_forwarder_service_account" {
-  description = "Cloud Run Job 실행용 SA (debugging용)."
+  description = "Cloud Run Service 실행용 SA."
   value       = module.scc_onprem_forwarder.forwarder_service_account_email
-}
-
-output "scc_forwarder_secret_id" {
-  description = "On-prem 인증 시크릿 ID (enable_secret=false면 null)."
-  value       = module.scc_onprem_forwarder.secret_id
 }

@@ -295,39 +295,39 @@ variable "enable_scc_onprem_forwarder" {
 }
 
 variable "scc_forwarder_image_uri" {
-  description = "Cloud Run Job 이미지 URI. Artifact Registry로 자체 이미지 push 후 변경. 기본은 placeholder."
+  description = "Cloud Run Service 이미지 URI. Artifact Registry로 자체 이미지 push 후 변경. 기본은 placeholder."
   type        = string
   default     = "gcr.io/google-samples/hello-app:1.0"
 }
 
-variable "scc_forwarder_schedule_cron" {
-  description = "Cloud Scheduler cron (Asia/Seoul). 기본: 매시 정각."
-  type        = string
-  default     = "0 * * * *"
-}
-
-variable "scc_forwarder_filter" {
-  description = "SCC findings 조회 필터 (organizations/{org}/sources/-/findings)."
-  type        = string
-  default     = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
-}
-
-variable "scc_forwarder_onprem_endpoint" {
-  description = "On-prem 수신 HTTPS URL (예: https://siem.internal.koreainvestment.com/scc-ingest)."
+variable "scc_forwarder_onprem_host" {
+  description = "on-prem 수신 서버 IP 또는 hostname."
   type        = string
   default     = ""
 }
 
-variable "scc_forwarder_lookback_minutes" {
-  description = "각 실행에서 조회할 findings 시간 범위 (분)."
+variable "scc_forwarder_onprem_port" {
+  description = "on-prem 수신 TCP port."
   type        = number
-  default     = 75
+  default     = 0
 }
 
-variable "scc_forwarder_batch_size" {
-  description = "POST 한 번에 보낼 findings 수. 1 = 단건 전송 (on-prem 단건 처리)."
+variable "scc_forwarder_tcp_timeout_sec" {
+  description = "TCP 연결/전송 timeout (s)."
   type        = number
-  default     = 1
+  default     = 10
+}
+
+variable "scc_forwarder_min_instance_count" {
+  description = "Cloud Run Service 최소 인스턴스 수. 1+ 권장 시 latency↓ but 비용↑."
+  type        = number
+  default     = 0
+}
+
+variable "scc_forwarder_max_instance_count" {
+  description = "Cloud Run Service 최대 인스턴스 수. SCC finding burst 대응."
+  type        = number
+  default     = 10
 }
 
 variable "scc_forwarder_vpc_cidr" {
@@ -348,21 +348,5 @@ variable "scc_forwarder_use_existing_egress_ip" {
   default     = true
 }
 
-# Secret Manager 연동 — on-prem 인증 헤더(Bearer/HMAC 등). 값은 별도 명령으로 추가.
-variable "scc_forwarder_enable_secret" {
-  description = "Secret Manager 시크릿 생성 + Cloud Run Job ENV 주입 활성화."
-  type        = bool
-  default     = false
-}
-
-variable "scc_forwarder_secret_id" {
-  description = "Secret Manager secret_id (ops project 내 유니크)."
-  type        = string
-  default     = "scc-forwarder-onprem-auth"
-}
-
-variable "scc_forwarder_secret_env_var_name" {
-  description = "컨테이너에 주입할 ENV 이름. 앱(main.py)이 ONPREM_AUTH_HEADER를 사용."
-  type        = string
-  default     = "ONPREM_AUTH_HEADER"
-}
+# Secret Manager 연동 변수는 PubSub→TCP 구조에서 제거됨 (HTTP 헤더 인증 없음).
+# 추후 TCP 핸드셰이크 토큰 등 필요하면 재도입 가능.

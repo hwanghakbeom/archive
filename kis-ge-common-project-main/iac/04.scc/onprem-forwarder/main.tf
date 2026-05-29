@@ -1,12 +1,4 @@
-# ────────────────────────────────────────────────────────────────────
-# Artifact Registry — 컨테이너 이미지 push 대상
-# 운영자는 본인의 forwarder 이미지를 빌드해 이 repo로 push:
-#   gcloud auth configure-docker ${region}-docker.pkg.dev
-#   docker buildx build --platform linux/amd64 -t \
-#     ${region}-docker.pkg.dev/${project_id}/scc-forwarder/forwarder:v1 .
-#   docker push <위 태그>
-# 이후 var.image_uri를 해당 태그로 교체 후 재apply.
-# ────────────────────────────────────────────────────────────────────
+# Artifact Registry — Cloud Run Service 이미지 push 대상.
 resource "google_artifact_registry_repository" "scc_forwarder" {
   count = var.enable ? 1 : 0
 
@@ -14,127 +6,115 @@ resource "google_artifact_registry_repository" "scc_forwarder" {
   location      = var.region
   repository_id = "scc-forwarder"
   format        = "DOCKER"
-  description   = "SCC on-prem forwarder Cloud Run Job 이미지"
+  description   = "SCC PubSub→TCP forwarder Cloud Run Service 이미지"
 }
 
-# ────────────────────────────────────────────────────────────────────
-# Cloud Run Job — 스케줄러가 트리거하는 batch worker
-# Direct VPC egress: 모든 outbound 트래픽을 VPC subnet 경유 →
-# Cloud NAT → scc_egress_nat (정적 외부 IP)로 SNAT
-# ────────────────────────────────────────────────────────────────────
-resource "google_cloud_run_v2_job" "scc_forwarder" {
+# ─────────────────────────────────────────────────────────────────────
+# Cloud Run Service — PubSub push 수신 + TCP egress
+# ─────────────────────────────────────────────────────────────────────
+resource "google_cloud_run_v2_service" "scc_forwarder" {
   count = var.enable ? 1 : 0
 
   project  = var.project_id
-  name     = "scc-forwarder"
+  name     = "scc-tcp-forwarder"
   location = var.region
 
-  template {
-    template {
-      service_account = google_service_account.scc_forwarder[0].email
-      timeout         = "${var.job_timeout_seconds}s"
-      max_retries     = 1
+  # PubSub push는 외부 HTTPS로 들어오므로 ingress=ALL + OIDC auth로 제한.
+  ingress = "INGRESS_TRAFFIC_ALL"
 
-      vpc_access {
-        network_interfaces {
-          network    = google_compute_network.scc_egress[0].id
-          subnetwork = google_compute_subnetwork.scc_egress[0].id
-        }
-        egress = "ALL_TRAFFIC"
+  template {
+    service_account = google_service_account.scc_forwarder[0].email
+
+    scaling {
+      min_instance_count = var.min_instance_count
+      max_instance_count = var.max_instance_count
+    }
+
+    # Direct VPC egress — 모든 outbound가 VPC subnet → NAT → 고정 IP로.
+    vpc_access {
+      network_interfaces {
+        network    = google_compute_network.scc_egress[0].id
+        subnetwork = google_compute_subnetwork.scc_egress[0].id
+      }
+      egress = "ALL_TRAFFIC"
+    }
+
+    timeout = "${var.request_timeout_sec}s"
+
+    containers {
+      image = var.image_uri
+
+      ports {
+        container_port = 8080
       }
 
-      containers {
-        image = var.image_uri
+      resources {
+        limits = {
+          cpu    = var.cpu
+          memory = var.memory
+        }
+      }
 
-        resources {
-          limits = {
-            cpu    = var.job_cpu
-            memory = var.job_memory
-          }
-        }
-
-        env {
-          name  = "ORG_ID"
-          value = var.org_id
-        }
-        env {
-          name  = "SCC_FILTER"
-          value = var.scc_filter
-        }
-        env {
-          name  = "ONPREM_ENDPOINT"
-          value = var.onprem_endpoint
-        }
-        env {
-          name  = "LOOKBACK_MINUTES"
-          value = tostring(var.lookback_minutes)
-        }
-        env {
-          name  = "BATCH_SIZE"
-          value = tostring(var.batch_size)
-        }
-
-        # Secret Manager에서 on-prem 인증 헤더 주입.
-        # var.enable_secret=false면 ENV 미주입 → 앱은 ONPREM_AUTH_HEADER 빈 값으로 동작 (헤더 없이 POST).
-        dynamic "env" {
-          for_each = var.enable_secret ? [1] : []
-          content {
-            name = var.secret_env_var_name
-            value_source {
-              secret_key_ref {
-                secret  = google_secret_manager_secret.onprem_auth[0].secret_id
-                version = "latest"
-              }
-            }
-          }
-        }
+      env {
+        name  = "ONPREM_HOST"
+        value = var.onprem_host
+      }
+      env {
+        name  = "ONPREM_PORT"
+        value = tostring(var.onprem_port)
+      }
+      env {
+        name  = "TCP_TIMEOUT_SEC"
+        value = tostring(var.tcp_timeout_sec)
       }
     }
   }
 
   lifecycle {
-    # 이미지는 별도 build pipeline으로 push되고 tag(:latest 등) 갱신이
-    # 빈번할 수 있으므로 terraform drift로 감지하지 않음.
-    # 명시적으로 이미지 교체하려면 var.image_uri 변경 + apply.
+    # 이미지는 별도 build pipeline으로 push → terraform drift 무시.
     ignore_changes = [
-      template[0].template[0].containers[0].image,
+      template[0].containers[0].image,
     ]
   }
 
   depends_on = [
     google_compute_router_nat.scc_egress,
-    google_organization_iam_member.scc_findings_viewer,
-    google_secret_manager_secret_iam_member.forwarder_accessor,
   ]
 }
 
-# ────────────────────────────────────────────────────────────────────
-# Cloud Scheduler — 주기적 트리거 (Cloud Run Jobs v2 :run API 호출)
-# ────────────────────────────────────────────────────────────────────
-resource "google_cloud_scheduler_job" "scc_forwarder" {
+# ─────────────────────────────────────────────────────────────────────
+# PubSub push subscription — 기존 scc-findings-notifications topic에 attach
+# ─────────────────────────────────────────────────────────────────────
+resource "google_pubsub_subscription" "scc_findings" {
   count = var.enable ? 1 : 0
 
-  project   = var.project_id
-  name      = "scc-forwarder-schedule"
-  region    = var.region
-  schedule  = var.schedule_cron
-  time_zone = var.schedule_timezone
+  project = var.project_id
+  name    = "scc-findings-tcp-forwarder"
+  topic   = "projects/${var.project_id}/topics/${var.pubsub_topic_name}"
 
-  http_target {
-    http_method = "POST"
-    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.scc_forwarder[0].name}:run"
+  ack_deadline_seconds = 30
 
-    oauth_token {
-      service_account_email = google_service_account.scc_scheduler[0].email
-      scope                 = "https://www.googleapis.com/auth/cloud-platform"
+  push_config {
+    push_endpoint = google_cloud_run_v2_service.scc_forwarder[0].uri
+
+    oidc_token {
+      service_account_email = google_service_account.scc_pubsub_pusher[0].email
     }
   }
 
-  retry_config {
-    retry_count = 1
+  # 503 (TCP 실패) 시 backoff 재시도.
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
+
+  # 무기한 보존 (운영 중 비활성화하더라도 만료 안 함).
+  expiration_policy {
+    ttl = ""
   }
 
   depends_on = [
-    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_service_iam_member.pubsub_invoker,
+    google_service_account_iam_member.pubsub_token_creator,
   ]
 }

@@ -149,20 +149,15 @@ module "scc_onprem_forwarder" {
 
   enable                 = var.enable_scc_onprem_forwarder
   project_id             = var.ops_project_id
-  org_id                 = var.org_id
   region                 = var.region_primary
   image_uri              = var.scc_forwarder_image_uri
-  schedule_cron          = var.scc_forwarder_schedule_cron
-  scc_filter             = var.scc_forwarder_filter
-  onprem_endpoint        = var.scc_forwarder_onprem_endpoint
-  lookback_minutes       = var.scc_forwarder_lookback_minutes
-  batch_size             = var.scc_forwarder_batch_size
+  pubsub_topic_name      = var.scc_notification_topic_name
+  onprem_host            = var.scc_forwarder_onprem_host
+  onprem_port            = var.scc_forwarder_onprem_port
+  tcp_timeout_sec        = var.scc_forwarder_tcp_timeout_sec
+  min_instance_count     = var.scc_forwarder_min_instance_count
+  max_instance_count     = var.scc_forwarder_max_instance_count
   vpc_cidr               = var.scc_forwarder_vpc_cidr
   egress_ip_name         = var.scc_forwarder_egress_ip_name
   use_existing_egress_ip = var.scc_forwarder_use_existing_egress_ip
-
-  # Secret Manager (on-prem 인증 헤더)
-  enable_secret       = var.scc_forwarder_enable_secret
-  secret_id           = var.scc_forwarder_secret_id
-  secret_env_var_name = var.scc_forwarder_secret_env_var_name
 }

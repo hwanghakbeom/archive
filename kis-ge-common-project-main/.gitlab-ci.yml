@@ -486,33 +486,35 @@ apply-scc-forwarder-info:
   stage: scc
   <<: *tf_template
   script:
-    - echo "================ SCC Forwarder 배포 상태 ================"
-    - terraform output scc_forwarder_egress_ip          || echo "(egress_ip output 없음 — enable_scc_onprem_forwarder=true + apply 선행 필요)"
+    - echo "================ SCC TCP Forwarder 배포 상태 ================"
+    - terraform output scc_forwarder_egress_ip          || echo "(egress_ip output 없음 — enable=true + apply 선행 필요)"
     - terraform output scc_forwarder_artifact_registry  || true
-    - terraform output scc_forwarder_job_name           || true
+    - terraform output scc_forwarder_service_name       || true
+    - terraform output scc_forwarder_service_url        || true
+    - terraform output scc_forwarder_subscription_name  || true
     - terraform output scc_forwarder_service_account    || true
-    - terraform output scc_forwarder_secret_id          || true
     - echo ""
     - echo "================ 운영 명령 헬퍼 ================"
     - 'echo "[1] 이미지 빌드 + AR push:"'
     - 'echo "    cd iac/04.scc/onprem-forwarder/forwarder/"'
     - 'echo "    gcloud builds submit --config=cloudbuild.yaml \\"'
     - 'echo "      --project=kis-gemini-common-prod \\"'
-    - 'echo "      --substitutions=_REGION=asia-northeast3,_TAG=v1 ."'
+    - 'echo "      --substitutions=_REGION=asia-northeast3,_TAG=v2 ."'
     - 'echo ""'
-    - 'echo "[2] Cloud Run Job 수동 실행 (테스트):"'
-    - 'echo "    gcloud run jobs execute scc-forwarder \\"'
-    - 'echo "      --region=asia-northeast3 \\"'
-    - 'echo "      --project=kis-gemini-common-prod --wait"'
+    - 'echo "[2] Cloud Run Service 로그 (실시간 finding 전송 확인):"'
+    - 'echo "    gcloud logging tail \\"'
+    - 'echo "      ''resource.type=\"cloud_run_revision\" resource.labels.service_name=\"scc-tcp-forwarder\"'' \\"'
+    - 'echo "      --project=kis-gemini-common-prod"'
     - 'echo ""'
-    - 'echo "[3] Secret 첫 버전 등록 (enable_secret=true 인 경우):"'
-    - 'echo "    echo -n ''Authorization: Bearer <TOKEN>'' | \\"'
-    - 'echo "      gcloud secrets versions add scc-forwarder-onprem-auth \\"'
-    - 'echo "        --data-file=- --project=kis-gemini-common-prod"'
+    - 'echo "[3] PubSub 강제 테스트 메시지 (TCP 동작 확인용):"'
+    - 'echo "    gcloud pubsub topics publish scc-findings-notifications \\"'
+    - 'echo "      --message=''{\"finding\":{\"category\":\"TEST\",\"severity\":\"HIGH\"}}'' \\"'
+    - 'echo "      --project=kis-gemini-common-prod"'
     - 'echo ""'
-    - 'echo "[4] Scheduler 일시 정지 / 재개:"'
-    - 'echo "    gcloud scheduler jobs pause  scc-forwarder-schedule --location=asia-northeast3 --project=kis-gemini-common-prod"'
-    - 'echo "    gcloud scheduler jobs resume scc-forwarder-schedule --location=asia-northeast3 --project=kis-gemini-common-prod"'
+    - 'echo "[4] Subscription 일시 정지 / 재개:"'
+    - 'echo "    gcloud pubsub subscriptions update scc-findings-tcp-forwarder \\"'
+    - 'echo "      --push-endpoint='''' --project=kis-gemini-common-prod   # pause"'
+    - 'echo "    (재개는 terraform apply로 push_endpoint 복원)"'
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
