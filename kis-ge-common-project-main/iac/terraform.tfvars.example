@@ -129,3 +129,22 @@ enable_phase6                = false
 scc_notification_topic_name  = "scc-findings-notifications"
 scc_notification_config_id   = "all-active-findings"
 scc_notification_filter      = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CRITICAL\"]"
+
+# === Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT) ===
+# Cloud Run Job이 주기적으로 SCC findings 조회 → Direct VPC egress → NAT 고정 IP →
+# on-prem HTTPS endpoint로 POST. 활성화 절차는 04.scc/onprem-forwarder/README.md 참조.
+#
+# 활성화 순서:
+#   1. enable_scc_onprem_forwarder = true 로 두고 apply
+#      → VPC/NAT/고정 IP/AR repo/Cloud Run Job(placeholder)/Scheduler 생성
+#   2. terraform output egress_ip_address → on-prem 방화벽 화이트리스트 등록
+#   3. forwarder 컨테이너 빌드 후 Artifact Registry에 push
+#   4. scc_forwarder_image_uri를 push한 태그로 변경 → 재apply
+enable_scc_onprem_forwarder    = false
+scc_forwarder_image_uri        = "gcr.io/google-samples/hello-app:1.0" # placeholder
+scc_forwarder_schedule_cron    = "0 * * * *"                           # 매시 정각
+scc_forwarder_filter           = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
+scc_forwarder_onprem_endpoint  = "" # 예: "https://siem.internal.koreainvestment.com/scc-ingest"
+scc_forwarder_lookback_minutes = 75
+scc_forwarder_vpc_cidr         = "10.200.0.0/28" # on-prem 사설망과 겹치지 않게
+scc_forwarder_egress_ip_name   = "scc-forwarder-egress-ip"

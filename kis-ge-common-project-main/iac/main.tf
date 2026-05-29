@@ -137,3 +137,25 @@ module "scc_notifications" {
   notification_filter      = var.scc_notification_filter
   notification_description = "Active HIGH/CRITICAL SCC findings → PubSub (SIEM/Slack/Email 연동용)"
 }
+
+# =============================================================
+# Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT 고정 IP → on-prem)
+# =============================================================
+# Cloud Run Job이 주기적으로 SCC findings 조회 후 Direct VPC egress 경유로
+# Cloud NAT의 고정 외부 IP로 SNAT되어 on-prem HTTPS endpoint에 POST.
+# 컨테이너 이미지는 별도 빌드/푸시 (terraform은 인프라만 관리).
+module "scc_onprem_forwarder" {
+  source = "./04.scc/onprem-forwarder"
+
+  enable           = var.enable_scc_onprem_forwarder
+  project_id       = var.ops_project_id
+  org_id           = var.org_id
+  region           = var.region_primary
+  image_uri        = var.scc_forwarder_image_uri
+  schedule_cron    = var.scc_forwarder_schedule_cron
+  scc_filter       = var.scc_forwarder_filter
+  onprem_endpoint  = var.scc_forwarder_onprem_endpoint
+  lookback_minutes = var.scc_forwarder_lookback_minutes
+  vpc_cidr         = var.scc_forwarder_vpc_cidr
+  egress_ip_name   = var.scc_forwarder_egress_ip_name
+}

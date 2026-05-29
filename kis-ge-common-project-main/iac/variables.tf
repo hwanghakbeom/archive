@@ -282,3 +282,56 @@ variable "scc_notification_filter" {
   type        = string
   default     = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CRITICAL\"]"
 }
+
+# === Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT) ===
+# Cloud Run Job이 주기적으로 SCC findings 조회 → Direct VPC egress → Cloud NAT
+# → 고정 외부 IP로 SNAT → on-prem HTTPS endpoint로 POST.
+# 별도 이미지 빌드 후 활성화 (placeholder image 그대로 두면 Job 실행 시 hello-app 동작 후 종료).
+
+variable "enable_scc_onprem_forwarder" {
+  description = "SCC on-prem forwarder 활성화. false면 VPC/NAT/Run/Scheduler 모두 0개."
+  type        = bool
+  default     = false
+}
+
+variable "scc_forwarder_image_uri" {
+  description = "Cloud Run Job 이미지 URI. Artifact Registry로 자체 이미지 push 후 변경. 기본은 placeholder."
+  type        = string
+  default     = "gcr.io/google-samples/hello-app:1.0"
+}
+
+variable "scc_forwarder_schedule_cron" {
+  description = "Cloud Scheduler cron (Asia/Seoul). 기본: 매시 정각."
+  type        = string
+  default     = "0 * * * *"
+}
+
+variable "scc_forwarder_filter" {
+  description = "SCC findings 조회 필터 (organizations/{org}/sources/-/findings)."
+  type        = string
+  default     = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
+}
+
+variable "scc_forwarder_onprem_endpoint" {
+  description = "On-prem 수신 HTTPS URL (예: https://siem.internal.koreainvestment.com/scc-ingest)."
+  type        = string
+  default     = ""
+}
+
+variable "scc_forwarder_lookback_minutes" {
+  description = "각 실행에서 조회할 findings 시간 범위 (분)."
+  type        = number
+  default     = 75
+}
+
+variable "scc_forwarder_vpc_cidr" {
+  description = "Direct VPC egress용 subnet CIDR. on-prem 사설망과 겹치지 않게 설정."
+  type        = string
+  default     = "10.200.0.0/28"
+}
+
+variable "scc_forwarder_egress_ip_name" {
+  description = "Cloud NAT 고정 IP 이름. 변경 시 on-prem 방화벽 화이트리스트도 동기화."
+  type        = string
+  default     = "scc-forwarder-egress-ip"
+}

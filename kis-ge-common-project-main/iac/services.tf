@@ -28,6 +28,11 @@ locals {
     "aiplatform.googleapis.com",      # Vertex AI (향후 Agent / Reasoning Engine)
     "cloudkms.googleapis.com",        # KMS
     "datacatalog.googleapis.com",     # Data Catalog
+    # ─── Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT 고정 IP)
+    "run.googleapis.com",              # Cloud Run Jobs
+    "cloudscheduler.googleapis.com",   # cron 트리거
+    "artifactregistry.googleapis.com", # 컨테이너 이미지 repo
+    "compute.googleapis.com",          # VPC / Router / NAT / 고정 IP
   ]
 }
 
