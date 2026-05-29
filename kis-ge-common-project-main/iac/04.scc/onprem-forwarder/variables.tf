@@ -84,9 +84,9 @@ variable "vpc_cidr" {
 }
 
 variable "egress_ip_name" {
-  description = "Cloud NAT 외부 정적 IP 이름."
+  description = "Cloud NAT 외부 정적 IP 이름. 빈 문자열이면 region 내 reserved IP가 정확히 1개일 때 자동 선택. use_existing_egress_ip=false면 신규 생성 이름."
   type        = string
-  default     = "scc-forwarder-egress-ip"
+  default     = ""
 }
 
 variable "use_existing_egress_ip" {

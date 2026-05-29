@@ -337,9 +337,9 @@ variable "scc_forwarder_vpc_cidr" {
 }
 
 variable "scc_forwarder_egress_ip_name" {
-  description = "Cloud NAT 고정 IP 이름. 변경 시 on-prem 방화벽 화이트리스트도 동기화."
+  description = "Cloud NAT 고정 IP 이름. 빈 문자열이면 region에 reserved IP가 1개일 때 자동 선택. use_existing=false면 신규 생성 이름."
   type        = string
-  default     = "scc-forwarder-egress-ip"
+  default     = ""
 }
 
 variable "scc_forwarder_use_existing_egress_ip" {

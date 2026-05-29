@@ -142,13 +142,13 @@ scc_notification_filter      = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CR
 #   4. scc_forwarder_image_uri를 push한 태그로 변경 → 재apply
 enable_scc_onprem_forwarder      = true
 scc_forwarder_image_uri          = "gcr.io/google-samples/hello-app:1.0" # placeholder — 빌드한 이미지로 교체
-scc_forwarder_onprem_host        = "" # 예: "siem.internal.koreainvestment.com" 또는 "10.5.20.30"
-scc_forwarder_onprem_port        = 0  # 예: 6514 (syslog-tls), 514 (syslog), 또는 custom
+scc_forwarder_onprem_host        = "219.255.63.27"
+scc_forwarder_onprem_port        = 1514
 scc_forwarder_tcp_timeout_sec    = 10
-scc_forwarder_min_instance_count = 0  # 1+ 권장 시 cold-start 없어짐(비용↑)
+scc_forwarder_min_instance_count = 0
 scc_forwarder_max_instance_count = 10
-scc_forwarder_vpc_cidr           = "10.200.0.0/28" # on-prem 사설망과 겹치지 않게
-scc_forwarder_egress_ip_name     = "scc-forwarder-egress-ip"
-# gcloud로 미리 reserve된 IP(scc-forwarder-egress-ip)를 data로 lookup해 NAT에 attach.
-# 신규 IP 생성하려면 false로 변경.
+scc_forwarder_vpc_cidr           = "10.200.0.0/28"
+# 빈 문자열 → region(asia-northeast3)의 reserved IP가 1개일 때 자동 선택.
+# 다중 IP면 정확한 이름 명시 필요. use_existing=false면 이 이름으로 신규 생성.
+scc_forwarder_egress_ip_name         = ""
 scc_forwarder_use_existing_egress_ip = true
