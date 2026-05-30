@@ -24,7 +24,7 @@ subsidiary_project_ids = [
   "kisb-ge-prod",  # 저축은행 (Korea Investment Savings Bank)
   "kic-ge-prod",   # 캐피탈 (Korea Investment Capital)
   "kim-ge-prod",   # 신탁운용 (Korea Investment Management)
-  "kivam-ge-prod", # 밸류운용 (Korea Investment Value Asset Management)
+  "vam-ge-prod",   # 밸류운용 (Korea Investment Value Asset Management)
   "kit-ge-prod",   # 부동산신탁 (Korea Investment Real Estate Trust)
   "kip-ge-prod",   # 파트너스 (Korea Investment Partners)
 ]
@@ -125,7 +125,7 @@ allowed_member_domains    = []
 #   2. Tier > Premium 또는 Enterprise 활성화 (billing 권한 있는 사용자 작업)
 #   3. CI의 enable-scc-tier 게이트 통과
 #   4. enable_phase6 = true 로 변경하고 main에 push
-enable_phase6                = false
+enable_phase6                = true
 scc_notification_topic_name  = "scc-findings-notifications"
 scc_notification_config_id   = "all-active-findings"
 scc_notification_filter      = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CRITICAL\"]"
