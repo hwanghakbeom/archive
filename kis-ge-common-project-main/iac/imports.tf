@@ -31,3 +31,11 @@ import {
   to = module.iam_policies.google_org_policy_policy.disable_auto_iam_default_sa[0]
   id = "organizations/457872813001/policies/iam.automaticIamGrantsForDefaultServiceAccounts"
 }
+
+# ── SCC v2 notification config (이전 apply 시도 중 GCP에 생성됨 → 409) ──
+# state로 흡수 후 terraform이 관리. enable_phase6=true 라 count[0] 존재.
+# import 성공 후 이 block 제거 가능.
+import {
+  to = module.scc_notifications.google_scc_v2_organization_notification_config.active_findings[0]
+  id = "organizations/457872813001/locations/global/notificationConfigs/all-active-findings"
+}
