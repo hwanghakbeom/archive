@@ -74,12 +74,10 @@ resource "google_cloud_run_v2_service" "scc_forwarder" {
     }
   }
 
-  lifecycle {
-    # 이미지는 별도 build pipeline으로 push → terraform drift 무시.
-    ignore_changes = [
-      template[0].containers[0].image,
-    ]
-  }
+  # NOTE: 이미지는 var.image_uri(태그)로 terraform이 관리한다.
+  #   초기 이전엔 ignore_changes=[image]를 걸었으나, 그러면 placeholder에서
+  #   실제 이미지로 갱신이 안 돼 서비스가 Ready=False에 갇혔다(uri 비어 subscription도 실패).
+  #   태그 기반이라 image_uri가 바뀔 때만 새 revision 배포(in-place, destroy 없음).
 
   depends_on = [
     google_compute_router_nat.scc_egress,
