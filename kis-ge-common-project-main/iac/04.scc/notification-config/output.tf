@@ -5,5 +5,5 @@ output "pubsub_topic" {
 
 output "notification_config_name" {
   description = "SCC notification config 전체 이름."
-  value       = var.enable_phase6 ? google_scc_notification_config.active_findings[0].name : null
+  value       = var.enable_phase6 ? google_scc_v2_organization_notification_config.active_findings[0].name : null
 }
