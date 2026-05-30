@@ -141,7 +141,7 @@ scc_notification_filter      = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR sever
 #   3. forwarder 컨테이너 빌드 후 Artifact Registry에 push
 #   4. scc_forwarder_image_uri를 push한 태그로 변경 → 재apply
 enable_scc_onprem_forwarder      = true
-scc_forwarder_image_uri          = "gcr.io/google-samples/hello-app:1.0" # placeholder — 빌드한 이미지로 교체
+scc_forwarder_image_uri          = "asia-northeast3-docker.pkg.dev/kis-gemini-common-prod/scc-forwarder/forwarder:v1"
 scc_forwarder_onprem_host        = "219.255.63.27"
 scc_forwarder_onprem_port        = 1514
 scc_forwarder_tcp_timeout_sec    = 10
