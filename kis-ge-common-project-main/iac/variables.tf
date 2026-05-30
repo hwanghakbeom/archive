@@ -280,7 +280,7 @@ variable "scc_notification_config_id" {
 variable "scc_notification_filter" {
   description = "SCC notification에 포함할 finding 필터 (CEL)."
   type        = string
-  default     = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CRITICAL\"]"
+  default     = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
 }
 
 # === Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT) ===

@@ -29,7 +29,7 @@ variable "notification_config_id" {
 variable "notification_filter" {
   description = "Notification에 포함할 finding 필터. CEL 표현식."
   type        = string
-  default     = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CRITICAL\"]"
+  default     = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
 }
 
 variable "notification_description" {

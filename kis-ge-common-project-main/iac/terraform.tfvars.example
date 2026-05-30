@@ -128,7 +128,7 @@ allowed_member_domains    = []
 enable_phase6                = true
 scc_notification_topic_name  = "scc-findings-notifications"
 scc_notification_config_id   = "all-active-findings"
-scc_notification_filter      = "state=\"ACTIVE\" AND severity IN [\"HIGH\", \"CRITICAL\"]"
+scc_notification_filter      = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"
 
 # === Phase 6-B: SCC On-prem Forwarder (Cloud Run Job + NAT) ===
 # Cloud Run Job이 주기적으로 SCC findings 조회 → Direct VPC egress → NAT 고정 IP →
