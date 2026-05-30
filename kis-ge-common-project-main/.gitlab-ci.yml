@@ -465,15 +465,18 @@ apply-scc-onprem-forwarder:
   variables:
     TF_TARGET: module.scc_onprem_forwarder
   script:
-    - terraform plan -input=false -refresh=false -target=$TF_TARGET -out=tfplan.binary
+    # refresh 활성화: service.uri 등 computed 값을 live에서 읽어야 subscription의
+    # push_endpoint가 올바른 값으로 plan됨 (-refresh=false면 stale ""로 고정되어
+    # "inconsistent final plan" / push_endpoint invalid 발생).
+    - terraform plan -input=false -target=$TF_TARGET -out=tfplan.binary
     - terraform apply -input=false -auto-approve tfplan.binary
-    # apply 완료 직후 NAT 고정 IP를 바로 노출 — on-prem 방화벽 화이트리스트 등록용.
+    # apply 완료 직후 운영 정보 노출 — on-prem 방화벽 화이트리스트 등록용.
     - echo "================ Deployed Outputs ================"
-    - terraform output scc_forwarder_egress_ip          || true
-    - terraform output scc_forwarder_artifact_registry  || true
-    - terraform output scc_forwarder_job_name           || true
-    - terraform output scc_forwarder_service_account    || true
-    - terraform output scc_forwarder_secret_id          || true
+    - terraform output -no-color scc_forwarder_egress_ip         || true
+    - terraform output -no-color scc_forwarder_artifact_registry || true
+    - terraform output -no-color scc_forwarder_service_url       || true
+    - terraform output -no-color scc_forwarder_subscription_name || true
+    - terraform output -no-color scc_forwarder_service_account   || true
     - echo "=================================================="
   when: manual
   rules:
