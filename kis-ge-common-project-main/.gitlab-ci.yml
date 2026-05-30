@@ -526,10 +526,13 @@ heal-scc-forwarder:
 # forwarder 컨테이너 이미지를 Cloud Build로 빌드 + AR push.
 # 로컬 docker 불필요 — Cloud Build가 GCP 쪽에서 처리. CI는 wrapper 역할.
 #
-# 사전 조건:
+# 사전 조건 (IaC SA = kis-gemini-common-prod-iac@... 가 빌드 실행 SA):
 #   - cloudbuild.googleapis.com API enable (apply-services에 포함됨)
-#   - SA에 roles/cloudbuild.builds.editor + roles/storage.admin (Cloud Build staging bucket)
-#     + roles/artifactregistry.writer (이미지 push)
+#   - roles/cloudbuild.builds.editor
+#   - roles/storage.admin (또는 objectViewer) — Cloud Build staging 버킷 소스 read
+#   - roles/artifactregistry.writer — 이미지 push
+#   - roles/logging.logWriter — CLOUD_LOGGING_ONLY 빌드 로그
+#   - roles/iam.serviceAccountUser ON 자기 자신 — --service-account actAs (필수!)
 #   - apply-scc-onprem-forwarder가 한 번 돌아서 AR repo 존재해야 함
 #
 # Run Pipeline 변수:
@@ -553,13 +556,20 @@ build-forwarder-image:
       tar -xzf /tmp/gcloud.tar.gz -C /tmp
       export PATH="/tmp/google-cloud-sdk/bin:$PATH"
       gcloud auth activate-service-account --key-file=/tmp/sa.json
+      BUILD_SA="$(gcloud config get-value account 2>/dev/null)"
+      echo "▸ build service account: ${BUILD_SA}"
 
       # Cloud Build 트리거 (forwarder/ 디렉터리의 cloudbuild.yaml 사용)
       cd iac/04.scc/onprem-forwarder/forwarder/
       echo "▸ Cloud Build 시작: project=${BUILD_PROJECT} region=${BUILD_REGION} tag=${IMAGE_TAG}"
+      # --service-account: 기본 빌드 SA(compute/cloudbuild)는 org 정책
+      #   (disable_automatic_iam_grants_default_sa)으로 권한이 0 → 스테이징 소스
+      #   읽기 403(storage.objects.get). 권한 있는 IaC SA로 빌드 실행.
+      #   (cloudbuild.yaml의 logging=CLOUD_LOGGING_ONLY 필요 — 이미 설정됨)
       gcloud builds submit \
         --config=cloudbuild.yaml \
         --project="${BUILD_PROJECT}" \
+        --service-account="projects/${BUILD_PROJECT}/serviceAccounts/${BUILD_SA}" \
         --substitutions=_REGION="${BUILD_REGION}",_TAG="${IMAGE_TAG}",_PROJECT_ID="${BUILD_PROJECT}" \
         .
 
