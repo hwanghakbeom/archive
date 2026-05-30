@@ -483,6 +483,71 @@ apply-scc-onprem-forwarder:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
+# ───────────────────────────────────────────────────────────────────
+# SCC forwarder end-to-end 스모크 테스트 (수동).
+# 테스트 finding을 topic에 publish → subscription push → Cloud Run →
+# on-prem TCP 전송 시도. Cloud Run 로그에서 결과 자동 판정.
+#
+# 전제: apply-scc-notifications + apply-scc-onprem-forwarder 완료(서비스 Ready).
+# 권한: IaC SA에 roles/pubsub.publisher(topic) + roles/logging.viewer.
+#
+# 판정:
+#   "forwarded ... to 219.255.63.27:1514" → ✅ on-prem까지 도달
+#   "TCP timeout/failed"                   → ⚠️ forwarder 정상, on-prem 방화벽/포트 점검
+#                                              (35.216.58.131 → 1514 화이트리스트 확인)
+test-scc-forwarder:
+  stage: scc
+  variables:
+    TEST_PROJECT: "kis-gemini-common-prod"
+    TEST_TOPIC: "scc-findings-notifications"
+    TEST_SERVICE: "scc-tcp-forwarder"
+  script:
+    - |
+      set -e
+      # gcloud 설치 (ECR 이미지 미포함) — build-forwarder-image와 동일 패턴
+      if [ -f "$kis_gemini_common_prod_iac_key" ]; then cp "$kis_gemini_common_prod_iac_key" /tmp/sa.json; else printf '%s' "$kis_gemini_common_prod_iac_key" > /tmp/sa.json; fi
+      ARCH=$(uname -m); case "$ARCH" in x86_64) A=x86_64;; aarch64|arm64) A=arm;; *) A=x86_64;; esac
+      curl -sSL -o /tmp/gcloud.tar.gz "https://storage.googleapis.com/cloud-sdk-release/google-cloud-cli-linux-${A}.tar.gz"
+      tar -xzf /tmp/gcloud.tar.gz -C /tmp
+      export PATH="/tmp/google-cloud-sdk/bin:$PATH"
+      gcloud auth activate-service-account --key-file=/tmp/sa.json
+
+      MARKER="ci-test-$(date +%s)"
+      echo "▸ 테스트 finding publish (marker=${MARKER})"
+      gcloud pubsub topics publish "${TEST_TOPIC}" --project="${TEST_PROJECT}" \
+        --message="{\"finding\":{\"category\":\"TCP_FORWARDER_TEST\",\"severity\":\"HIGH\",\"state\":\"ACTIVE\",\"marker\":\"${MARKER}\"},\"resource\":{\"name\":\"//ci-smoke-test\"}}"
+
+      echo "▸ Cloud Run 처리/전송 대기 + 로그 확인 (최대 60s, min_instance=0 콜드스타트 포함)"
+      RESULT=""
+      for i in $(seq 1 12); do
+        sleep 5
+        LOGS=$(gcloud logging read \
+          "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${TEST_SERVICE}\"" \
+          --project="${TEST_PROJECT}" --freshness=3m --limit=30 \
+          --format="value(textPayload, jsonPayload.msg)" 2>/dev/null || true)
+        if echo "$LOGS" | grep -q "forwarded"; then RESULT="SUCCESS"; break; fi
+        if echo "$LOGS" | grep -qiE "TCP timeout|TCP send failed|tcp failed"; then RESULT="TCP_FAIL"; break; fi
+        echo "  ...대기중 (${i}/12)"
+      done
+
+      echo "================ 최근 forwarder 로그 ================"
+      gcloud logging read \
+        "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${TEST_SERVICE}\"" \
+        --project="${TEST_PROJECT}" --freshness=5m --limit=10 \
+        --format="value(timestamp, jsonPayload.msg, textPayload)" 2>/dev/null || true
+      echo "===================================================="
+      case "$RESULT" in
+        SUCCESS)  echo "✅ PASS: on-prem(219.255.63.27:1514)까지 TCP 전송 완료";;
+        TCP_FAIL) echo "⚠️ PARTIAL: forwarder는 정상 수신/전송 시도. on-prem 방화벽(35.216.58.131→1514)/포트 점검 필요"; exit 1;;
+        *)        echo "❓ INCONCLUSIVE: 60s 내 전송 로그 미확인. 구독/권한/콜드스타트 점검"; exit 1;;
+      esac
+
+      rm -f /tmp/sa.json; rm -rf /tmp/google-cloud-sdk /tmp/gcloud.tar.gz
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
 # forwarder 컨테이너 이미지를 Cloud Build로 빌드 + AR push.
 # 로컬 docker 불필요 — Cloud Build가 GCP 쪽에서 처리. CI는 wrapper 역할.
 #
