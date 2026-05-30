@@ -22,9 +22,8 @@ resource "google_cloud_run_v2_service" "scc_forwarder" {
   # PubSub push는 외부 HTTPS로 들어오므로 ingress=ALL + OIDC auth로 제한.
   ingress = "INGRESS_TRAFFIC_ALL"
 
-  # 실수로 인한 서비스 삭제 방지. 배포 실패로 tainted된 서비스를 재생성(replace)해
-  # 살리는 동안 임시 false. heal 완료 + 정상 확인 후 true로 복원할 것.
-  deletion_protection = false
+  # 실수로 인한 서비스 삭제 방지. 삭제/교체하려면 false로 변경 후 apply.
+  deletion_protection = true
 
   template {
     service_account = google_service_account.scc_forwarder[0].email
