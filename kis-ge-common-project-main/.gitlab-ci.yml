@@ -287,18 +287,25 @@ apply-service-perimeter:
   <<: *tf_template
   variables:
     TF_TARGET: module.service_perimeter
-    # REFRESH=true(기본) → -refresh 생략(terraform 기본 refresh) → state와 GCP 실제 대조.
-    # state엔 있는데 GCP엔 없는 drift(삭제됨)를 감지해 재생성함.
-    # 빠른 no-refresh가 필요하면 Run Pipeline에서 REFRESH=false.
+    # REFRESH=true(기본) → -refresh 생략(terraform 기본 refresh)로 state-GCP drift 감지.
+    # 빠른 no-refresh가 필요하면 REFRESH=false.
     REFRESH: "true"
+    # PERIMETER_ONLY=true → perimeter 리소스만 target(access level 추가/삭제 제외).
+    # access level 참조 제거를 먼저 반영해야 할 때 사용(VPC-SC 순서 문제 회피):
+    #   ① PERIMETER_ONLY=true 로 perimeter 먼저 갱신(참조 제거)
+    #   ② 일반 실행(PERIMETER_ONLY=false)으로 잔여 access level 정리(삭제)
+    PERIMETER_ONLY: "false"
   script:
     - |
-      if [ "$REFRESH" = "true" ]; then
-        echo "▸ REFRESH=true — state-실제 대조 후 plan (drift 재생성)"
-        terraform plan -input=false -target="$TF_TARGET" -out=tfplan.binary
-      else
-        terraform plan -input=false -refresh=false -target="$TF_TARGET" -out=tfplan.binary
+      TGT="$TF_TARGET"
+      if [ "$PERIMETER_ONLY" = "true" ]; then
+        TGT='module.service_perimeter.google_access_context_manager_service_perimeter.central[0]'
+        echo "▸ PERIMETER_ONLY=true — perimeter 리소스만 적용: $TGT"
       fi
+      RF=""
+      [ "$REFRESH" != "true" ] && RF="-refresh=false"
+      echo "▸ plan: target=$TGT  REFRESH=$REFRESH"
+      terraform plan -input=false $RF -target="$TGT" -out=tfplan.binary
       terraform apply -input=false -auto-approve tfplan.binary
   when: manual
   rules:
