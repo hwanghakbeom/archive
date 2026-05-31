@@ -183,22 +183,25 @@ dynamic "ingress_policies" {
 
 ```hcl
 perimeter_subsidiary_ge_access = {
-  kih = {
-    project_id        = "kih-ge-prod"   # 실제 프로젝트 ID로 확인
-    allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"]
-    external_members  = []              # kih 외부 허용 그룹 주소 (입력 대기)
-  }
-  kis = {
-    project_id        = "kis-ge-prod"   # 실제 프로젝트 ID로 확인
-    allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"]
-    external_members  = []              # kis 외부 허용 그룹 주소 (입력 대기)
-  }
+  # 공통 corp CIDR (kih·kis 확인됨, 나머지 6개는 동일 여부 확인 필요)
+  kih  = { project_id = "kih-ge-prod",  allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["group:kih-vip@koreainvestment.com"] }
+  kis  = { project_id = "kis-ge-prod",  allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["group:kis-vip@koreainvestment.com"] }
+  kisb = { project_id = "kisb-ge-prod", allowed_ip_ranges = [], external_members = ["group:kisb-vip@koreainvestment.com"] }  # IP 입력 대기
+  kic  = { project_id = "kic-ge-prod",  allowed_ip_ranges = [], external_members = ["group:kic-vip@koreainvestment.com"] }   # IP 입력 대기
+  kim  = { project_id = "kim-ge-prod",  allowed_ip_ranges = [], external_members = ["group:kim-vip@koreainvestment.com"] }   # IP 입력 대기
+  vam  = { project_id = "vam-ge-prod",  allowed_ip_ranges = [], external_members = ["group:vam-vip@koreainvestment.com"] }   # IP 입력 대기
+  kit  = { project_id = "kit-ge-prod",  allowed_ip_ranges = [], external_members = ["group:kit-vip@koreainvestment.com"] }   # IP 입력 대기
+  kip  = { project_id = "kip-ge-prod",  allowed_ip_ranges = [], external_members = ["group:Kkp-vip@koreainvestment.com"] }   # ⚠ 그룹명 kip vs Kkp 확인 / IP 입력 대기
 }
 ```
 
-> 참고: kih·kis의 `allowed_ip_ranges`가 동일하므로 **IP 차원의 자회사 간 격리는 없다**
+> 참고 1: kih·kis의 `allowed_ip_ranges`가 동일하므로 **IP 차원의 자회사 간 격리는 없다**
 > (같은 corp 망 egress). 남는 격리 경계 = (1) 외부 비corp망 전면 차단, (2) 외부 그룹의
-> 자회사별 분리(ingress가 프로젝트별로 묶임). 향후 자회사가 다른 IP를 쓰면 그때 IP 격리도 발생.
+> 자회사별 분리(ingress가 프로젝트별로 묶임).
+> 참고 2: **8개 자회사 전부 항목이 있어야 한다.** discoveryengine restricted_services 추가는
+> perimeter 전역이므로, `subsidiary_ge_access`에 없는(또는 `allowed_ip_ranges`가 빈) 자회사는
+> 사내망에서도 ingress 미존재로 **전면 차단**된다. enforce 전 6개 자회사 IP 확정 필수.
+> 참고 3: `Kkp-vip` 그룹명은 자회사 키 `kip`과 철자 불일치 — 실제 그룹 주소 확인 후 확정.
 
 ## 6. 설계 결정 (열린 항목에 대한 확정)
 
@@ -206,12 +209,15 @@ perimeter_subsidiary_ge_access = {
   프로젝트 단위 ingress로 한정 → 자회사 간 IP 교차 통과 차단. (사용자 확정: "자회사별 격리 필요")
 - **확정 IP:** kih·kis 모두 `219.255.206.0/24` + `175.113.102.0/24` (동일 집합).
   → **IP 차원 자회사 격리는 없음**(같은 corp 망). 격리 경계는 외부 차단 + 외부그룹 자회사별 분리.
-- **외부 허용 그룹은 자회사별**(`subsidiary_ge_access[*].external_members`). 그룹 carve-out은
-  해당 자회사 프로젝트로만 ingress → 이 차원에서는 자회사 격리 유지. *그룹 Workspace 주소는 입력 대기.*
+- **외부 허용 그룹은 자회사별 VIP 그룹**(`subsidiary_ge_access[*].external_members`). 그룹 carve-out은
+  해당 자회사 프로젝트로만 ingress → 이 차원에서는 자회사 격리 유지. 8개 그룹 매핑:
+  kih→`kih-vip`, kis→`kis-vip`, kisb→`kisb-vip`, kic→`kic-vip`, kim→`kim-vip`,
+  vam→`vam-vip`, kit→`kit-vip`, kip→`Kkp-vip`(⚠ 철자 확인).
 - **기존 5개 서비스 동작 불변.** corp IP를 perimeter-level `access_levels`에 넣지 않으므로
   enforce 중인 aiplatform/storage/bigquery/dlp/cloudkms 접근 패턴에 영향 없음.
-- **적용 범위:** 우선 kih·kis. 타 자회사(kic/kim/vam/kit/kip)는 `subsidiary_ge_access`에
-  항목 추가로 롤아웃(메모리: kih 검증 후 타 자회사 확대 패턴과 일치).
+- **적용 범위 = 8개 자회사 전부** (kih/kis/kisb/kic/kim/vam/kit/kip). discoveryengine 제한이
+  perimeter 전역이라 부분 적용 불가 — enforce 전 8개 모두 IP·그룹 확정 필요.
+  IP는 kih·kis만 확인됨, 나머지 6개 입력 대기.
 
 ## 7. Load-bearing 가정과 검증 계획
 
@@ -259,4 +265,4 @@ perimeter_subsidiary_ge_access = {
 
 - LB Cloud Armor IP allowlist(defense-in-depth로 추후 추가 가능하나 본 요구 충족엔 불필요).
 - IAP / Cloud Run 프록시 등 엣지 신원 게이트(API 레이어 강제로 대체됨).
-- 타 자회사(kic/kim/vam/kit/kip) 롤아웃(동일 패턴으로 `subsidiary_ge_access` 항목 추가 — 후속).
+- 8개 자회사 외 신규 자회사: 동일 패턴으로 `subsidiary_project_ids` + `subsidiary_ge_access` 항목 추가.
