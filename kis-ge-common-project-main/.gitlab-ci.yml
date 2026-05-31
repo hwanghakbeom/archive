@@ -287,7 +287,19 @@ apply-service-perimeter:
   <<: *tf_template
   variables:
     TF_TARGET: module.service_perimeter
-  script: *tf_apply_target
+    # REFRESH=true → -refresh 생략(terraform 기본 refresh) → state와 GCP 실제 대조.
+    # state엔 있는데 GCP엔 없는 drift(삭제됨)를 감지해 재생성함.
+    # 기본 false = -refresh=false(빠른 no-refresh, 기존 동작).
+    REFRESH: "false"
+  script:
+    - |
+      if [ "$REFRESH" = "true" ]; then
+        echo "▸ REFRESH=true — state-실제 대조 후 plan (drift 재생성)"
+        terraform plan -input=false -target="$TF_TARGET" -out=tfplan.binary
+      else
+        terraform plan -input=false -refresh=false -target="$TF_TARGET" -out=tfplan.binary
+      fi
+      terraform apply -input=false -auto-approve tfplan.binary
   when: manual
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
