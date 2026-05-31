@@ -22,6 +22,7 @@ module "service_perimeter" {
   ingress_identities      = var.perimeter_ingress_identities
   ingress_source_projects = var.perimeter_ingress_source_projects
   restricted_services     = var.perimeter_restricted_services
+  subsidiary_ge_access    = var.perimeter_subsidiary_ge_access
 }
 
 # =============================================================

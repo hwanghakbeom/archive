@@ -78,6 +78,17 @@ variable "perimeter_restricted_services" {
   ]
 }
 
+variable "perimeter_subsidiary_ge_access" {
+  description = "자회사별 GE(discoveryengine) 접근 정책 맵. service-perimeter 모듈의 subsidiary_ge_access로 전달."
+  type = map(object({
+    project_id        = string
+    controlled        = bool
+    allowed_ip_ranges = optional(list(string), [])
+    external_members  = optional(list(string), [])
+  }))
+  default = {}
+}
+
 # === Phase 2: Storage Org Policies ===
 variable "enforce_public_access_prevention" {
   description = "storage.publicAccessPrevention=enforced 조직 전체 강제."
