@@ -480,11 +480,23 @@ terraform show -json tfplan.binary | jq -r '
 - perimeter의 `status[0].restricted_services`에 `discoveryengine.googleapis.com` 포함, 기존 5개 유지.
 - `status[0].ingress_policies` 개수 = admin 1 + GE(통제IP 2 + 통제VIP 2 + 비통제 6 = 10) = **11**.
 - `status[0].access_levels` = corp 1개만(ge_corp_* 미포함 — 격리 핵심).
+- **GE VIP ingress 검증:** kih/kis VIP 규칙이 `identities=[group:*-vip]`만 갖고 `identity_type` 미설정인지
+  (= 그룹 한정). `identity_type=ANY_IDENTITY`가 같이 붙어 있으면 그룹 제한이 무력화됨 — 코드는 이미
+  conditional로 수정됨(commit 9bfdb63)이나 plan 출력으로 재확인.
+- **🔴 기존 admin ingress 검증(중요):** VPC-SC는 `identityType`와 `identities`가 **상호 배타적**이다.
+  기존 admin `ingress_policies`는 `identity_type=ANY_IDENTITY` + `identities=var.ingress_identities`
+  (tfvars=angelo)를 **동시 설정**한다. perimeter를 처음 enable하는 이번 apply에서 이게 ① apply 에러를
+  내거나 ② identity_type이 우선되어 admin ingress가 "any identity"로 넓어져(sources 비면 perimeter 전체
+  무력화) 둘 중 하나가 될 수 있다. plan/apply가 에러나면 admin 블록도 동일 conditional
+  (`identity_type = length(var.ingress_identities) > 0 ? null : "ANY_IDENTITY"`)로 수정 후 재plan.
+  **이 항목은 팀의 기존 admin 접근 설계라 의도(angelo 한정 vs source-project 한정) 확인 후 수정.**
 - **기존 5개 서비스 / corp access level 변경 없음**(회귀 0).
 
 - [ ] **Step 3: 게이트 판단**
 
-위 체크 중 하나라도 어긋나면 **멈추고 원인 분석**. 특히 ingress 개수/리소스 한정(projects/<number>)·access_levels에 ge_corp 미포함을 반드시 확인. 이상 없으면 Task 7로.
+위 체크 중 하나라도 어긋나면 **멈추고 원인 분석**. 특히 ① ingress 개수/리소스 한정(projects/<number>),
+② access_levels에 ge_corp 미포함, ③ admin/VIP ingress의 identity_type+identities 동시설정 문제를 반드시 확인.
+이상 없으면 Task 7로.
 
 > 커밋 없음(plan 검증 단계).
 
