@@ -28,6 +28,21 @@ resource "google_access_context_manager_access_level" "corp" {
   }
 }
 
+# 통제 자회사별 GE access level (사내망 IP). perimeter-level access_levels에는 넣지 않음.
+resource "google_access_context_manager_access_level" "ge_corp" {
+  for_each = local.enabled ? local.ge_controlled : {}
+
+  parent = local.parent
+  name   = "${local.parent}/accessLevels/ge_corp_${each.key}"
+  title  = "GE corp access (${each.key})"
+
+  basic {
+    conditions {
+      ip_subnetworks = each.value.allowed_ip_ranges
+    }
+  }
+}
+
 resource "google_access_context_manager_service_perimeter" "central" {
   count = local.enabled ? 1 : 0
 
