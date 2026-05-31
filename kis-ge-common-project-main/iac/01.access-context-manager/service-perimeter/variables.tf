@@ -68,3 +68,20 @@ variable "access_level_name" {
   type        = string
   default     = "corp_access"
 }
+
+variable "subsidiary_ge_access" {
+  description = <<-EOT
+    자회사별 GE(discoveryengine) 접근 정책 맵. key = 자회사 키.
+      project_id        : 해당 자회사 GCP 프로젝트 ID
+      controlled        : true=사내망 IP + VIP 그룹만 허용, false=전면 허용(현재 동작 유지)
+      allowed_ip_ranges : controlled=true일 때 사내망 egress CIDR (access level로 감쌈)
+      external_members  : controlled=true일 때 외부(맨몸) 허용 identity (group:/user:)
+  EOT
+  type = map(object({
+    project_id        = string
+    controlled        = bool
+    allowed_ip_ranges = optional(list(string), [])
+    external_members  = optional(list(string), [])
+  }))
+  default = {}
+}

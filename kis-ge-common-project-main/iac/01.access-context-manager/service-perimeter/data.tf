@@ -5,3 +5,10 @@ data "google_project" "subsidiary" {
 
   project_id = each.value
 }
+
+# GE 접근 제어 대상 프로젝트 ID → number (subsidiary_ge_access 키로 조회).
+data "google_project" "ge" {
+  for_each = var.enable_perimeter ? var.subsidiary_ge_access : {}
+
+  project_id = each.value.project_id
+}
