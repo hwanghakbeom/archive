@@ -43,6 +43,23 @@ resource "google_access_context_manager_access_level" "ge_corp" {
   }
 }
 
+# 통제 자회사별 VIP 그룹 access level (members 조건 — 소스 IP 무관, 그룹 한정).
+# VPC-SC ingress의 identities/identity_type 조합 제약을 피하려고, 그룹 제한은
+# ingress.identities가 아니라 access level members로 표현한다. (그룹 있을 때만 생성)
+resource "google_access_context_manager_access_level" "ge_vip" {
+  for_each = local.enabled ? local.ge_vip : {}
+
+  parent = local.parent
+  name   = "${local.parent}/accessLevels/ge_vip_${each.key}"
+  title  = "GE VIP access (${each.key})"
+
+  basic {
+    conditions {
+      members = each.value.external_members
+    }
+  }
+}
+
 resource "google_access_context_manager_service_perimeter" "central" {
   count = local.enabled ? 1 : 0
 
