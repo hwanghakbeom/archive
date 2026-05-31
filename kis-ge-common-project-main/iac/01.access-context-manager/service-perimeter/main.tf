@@ -43,9 +43,22 @@ resource "google_access_context_manager_access_level" "ge_corp" {
   }
 }
 
-# 참고: VPC-SC access level members / ingress identities는 그룹(group:)을 지원하지 않음
-# (user:/serviceAccount:만). 따라서 VIP "그룹" 예외는 VPC-SC로 표현 불가 → 제거.
-# kih/kis는 ge_corp(사내망 IP)로만 통제. VIP 예외 필요 시 개별 user 또는 앱 레이어에서 처리.
+# 통제 자회사별 예외 user access level (members 조건 — 소스 IP 무관, 지정 user 한정).
+# ⚠️ VPC-SC는 group:을 지원하지 않음 → members에는 user:/serviceAccount:만 넣을 것.
+# (예: user:114507@koreainvestment.com). 지정된 자회사에만 생성(external_members 있을 때).
+resource "google_access_context_manager_access_level" "ge_vip" {
+  for_each = local.enabled ? local.ge_vip : {}
+
+  parent = local.parent
+  name   = "${local.parent}/accessLevels/ge_vip_${each.key}"
+  title  = "GE VIP access (${each.key})"
+
+  basic {
+    conditions {
+      members = each.value.external_members
+    }
+  }
+}
 
 resource "google_access_context_manager_service_perimeter" "central" {
   count = local.enabled ? 1 : 0
