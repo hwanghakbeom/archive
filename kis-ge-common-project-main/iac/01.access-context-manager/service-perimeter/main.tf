@@ -86,7 +86,7 @@ resource "google_access_context_manager_service_perimeter" "central" {
         for_each = local.ge_ingress
         content {
           ingress_from {
-            identity_type = "ANY_IDENTITY"
+            identity_type = ingress_policies.value.identities == null ? "ANY_IDENTITY" : null
             identities    = ingress_policies.value.identities
 
             dynamic "sources" {
@@ -143,7 +143,7 @@ resource "google_access_context_manager_service_perimeter" "central" {
         for_each = local.ge_ingress
         content {
           ingress_from {
-            identity_type = "ANY_IDENTITY"
+            identity_type = ingress_policies.value.identities == null ? "ANY_IDENTITY" : null
             identities    = ingress_policies.value.identities
 
             dynamic "sources" {
