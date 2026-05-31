@@ -96,6 +96,13 @@ resource "google_access_context_manager_service_perimeter" "central" {
         content {
           ingress_from {
             identities = ingress_policies.value.identities
+
+            dynamic "sources" {
+              for_each = ingress_policies.value.access_level == null ? [] : [ingress_policies.value.access_level]
+              content {
+                access_level = sources.value
+              }
+            }
           }
           ingress_to {
             operations {
@@ -176,6 +183,13 @@ resource "google_access_context_manager_service_perimeter" "central" {
         content {
           ingress_from {
             identities = ingress_policies.value.identities
+
+            dynamic "sources" {
+              for_each = ingress_policies.value.access_level == null ? [] : [ingress_policies.value.access_level]
+              content {
+                access_level = sources.value
+              }
+            }
           }
           ingress_to {
             operations {

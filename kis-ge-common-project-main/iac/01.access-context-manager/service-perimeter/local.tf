@@ -24,16 +24,17 @@ locals {
       resource     = "projects/${local.ge_project_number[k]}"
     }],
     # (2) 통제: VIP 예외(어느 IP서나) → 해당 프로젝트. external_members(group:/user:)를
-    #     ingress identities로 직접 지정 (group: 지원). identity_type 미지정.
+    #     ingress identities로 지정 + sources access_level="*"(any network).
+    #     VPC-SC는 sources가 필수이며 "*"는 모든 네트워크 출처 허용.
     [for k, v in local.ge_controlled : {
       identities   = v.external_members
-      access_level = null
+      access_level = "*"
       resource     = "projects/${local.ge_project_number[k]}"
     } if length(v.external_members) > 0],
-    # (3) 비통제: 전면 허용(any identity, 소스 무관) → 해당 프로젝트
+    # (3) 비통제: 전면 허용 → access_level="*"(any network) 소스 필수.
     [for k, v in local.ge_uncontrolled : {
       identities   = null
-      access_level = null
+      access_level = "*"
       resource     = "projects/${local.ge_project_number[k]}"
     }],
   )
