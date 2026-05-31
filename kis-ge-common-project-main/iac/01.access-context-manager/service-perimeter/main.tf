@@ -43,22 +43,9 @@ resource "google_access_context_manager_access_level" "ge_corp" {
   }
 }
 
-# 통제 자회사별 예외 user access level (members 조건 — 소스 IP 무관, 지정 user 한정).
-# ⚠️ VPC-SC는 group:을 지원하지 않음 → members에는 user:/serviceAccount:만 넣을 것.
-# (예: user:114507@koreainvestment.com). 지정된 자회사에만 생성(external_members 있을 때).
-resource "google_access_context_manager_access_level" "ge_vip" {
-  for_each = local.enabled ? local.ge_vip : {}
-
-  parent = local.parent
-  name   = "${local.parent}/accessLevels/ge_vip_${each.key}"
-  title  = "GE VIP access (${each.key})"
-
-  basic {
-    conditions {
-      members = each.value.external_members
-    }
-  }
-}
+# VIP 예외(그룹/사용자)는 access level이 아니라 ingress identities로 처리한다.
+# (access level members는 group: 미지원이지만, ingress/egress identities는 group: 지원 —
+#  cloud.google.com/vpc-service-controls/docs/supported-identities)
 
 resource "google_access_context_manager_service_perimeter" "central" {
   count = local.enabled ? 1 : 0
@@ -103,12 +90,31 @@ resource "google_access_context_manager_service_perimeter" "central" {
       }
 
       # GE 자회사별 ingress (통제 IP / 통제 VIP / 비통제 전면허용) — discoveryengine 한정
+      # GE 통제 자회사 VIP — 그룹/사용자(ingress identities, group: 지원). identity_type 미지정(생략).
       dynamic "ingress_policies" {
-        for_each = local.ge_ingress
+        for_each = local.ge_ingress_identity
         content {
           ingress_from {
-            identity_type = ingress_policies.value.identities == null ? "ANY_IDENTITY" : null
-            identities    = ingress_policies.value.identities
+            identities = ingress_policies.value.identities
+          }
+          ingress_to {
+            operations {
+              service_name = "discoveryengine.googleapis.com"
+              method_selectors {
+                method = "*"
+              }
+            }
+            resources = [ingress_policies.value.resource]
+          }
+        }
+      }
+
+      # GE IP(access level) / 비통제 전면허용 — ANY_IDENTITY + access_level source
+      dynamic "ingress_policies" {
+        for_each = local.ge_ingress_source
+        content {
+          ingress_from {
+            identity_type = "ANY_IDENTITY"
 
             dynamic "sources" {
               for_each = ingress_policies.value.access_level == null ? [] : [ingress_policies.value.access_level]
@@ -164,12 +170,31 @@ resource "google_access_context_manager_service_perimeter" "central" {
         }
       }
 
+      # GE 통제 자회사 VIP — 그룹/사용자(ingress identities, group: 지원). identity_type 미지정(생략).
       dynamic "ingress_policies" {
-        for_each = local.ge_ingress
+        for_each = local.ge_ingress_identity
         content {
           ingress_from {
-            identity_type = ingress_policies.value.identities == null ? "ANY_IDENTITY" : null
-            identities    = ingress_policies.value.identities
+            identities = ingress_policies.value.identities
+          }
+          ingress_to {
+            operations {
+              service_name = "discoveryengine.googleapis.com"
+              method_selectors {
+                method = "*"
+              }
+            }
+            resources = [ingress_policies.value.resource]
+          }
+        }
+      }
+
+      # GE IP(access level) / 비통제 전면허용 — ANY_IDENTITY + access_level source
+      dynamic "ingress_policies" {
+        for_each = local.ge_ingress_source
+        content {
+          ingress_from {
+            identity_type = "ANY_IDENTITY"
 
             dynamic "sources" {
               for_each = ingress_policies.value.access_level == null ? [] : [ingress_policies.value.access_level]

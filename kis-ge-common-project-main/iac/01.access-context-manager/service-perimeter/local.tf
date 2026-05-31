@@ -12,9 +12,6 @@ locals {
   ge_controlled   = { for k, v in var.subsidiary_ge_access : k => v if v.controlled }
   ge_uncontrolled = { for k, v in var.subsidiary_ge_access : k => v if !v.controlled }
 
-  # 통제 자회사 중 IP 외 예외 user가 지정된 것 → ge_vip access level(members)로 처리.
-  ge_vip = { for k, v in local.ge_controlled : k => v if length(v.external_members) > 0 }
-
   # 프로젝트 number
   ge_project_number = { for k, v in var.subsidiary_ge_access : k => data.google_project.ge[k].number }
 
@@ -26,10 +23,11 @@ locals {
       access_level = google_access_context_manager_access_level.ge_corp[k].name
       resource     = "projects/${local.ge_project_number[k]}"
     }],
-    # (2) 통제: 예외 user(어느 IP서나) → 해당 프로젝트. user는 ge_vip access level members로 제한.
+    # (2) 통제: VIP 예외(어느 IP서나) → 해당 프로젝트. external_members(group:/user:)를
+    #     ingress identities로 직접 지정 (group: 지원). identity_type 미지정.
     [for k, v in local.ge_controlled : {
-      identities   = null
-      access_level = google_access_context_manager_access_level.ge_vip[k].name
+      identities   = v.external_members
+      access_level = null
       resource     = "projects/${local.ge_project_number[k]}"
     } if length(v.external_members) > 0],
     # (3) 비통제: 전면 허용(any identity, 소스 무관) → 해당 프로젝트
@@ -39,4 +37,10 @@ locals {
       resource     = "projects/${local.ge_project_number[k]}"
     }],
   )
+
+  # ingress_from의 identity_type/identities 제약 때문에 두 그룹으로 분리:
+  #  - identities 지정(VIP 그룹/유저): ingress_from에 identity_type 미지정
+  #  - 그 외(IP access_level / 전면허용): identity_type=ANY_IDENTITY
+  ge_ingress_identity = [for e in local.ge_ingress : e if e.identities != null]
+  ge_ingress_source   = [for e in local.ge_ingress : e if e.identities == null]
 }

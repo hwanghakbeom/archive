@@ -43,9 +43,9 @@ perimeter_restricted_services = [
 ]
 
 perimeter_subsidiary_ge_access = {
-  # 통제 자회사 (사내망 IP + 예외 user). external_members는 VPC-SC 제약상 user:/serviceAccount:만(그룹 불가).
-  kih = { project_id = "kih-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["user:114507@koreainvestment.com"] }
-  kis = { project_id = "kis-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["user:114507@koreainvestment.com"] }
+  # 통제 자회사 (사내망 IP + VIP 예외). external_members는 ingress identities로 들어가며 group:/user: 모두 가능.
+  kih = { project_id = "kih-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["group:kih-vip@koreainvestment.com"] }
+  kis = { project_id = "kis-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["group:kis-vip@koreainvestment.com"] }
   # 비통제 자회사 (전면 허용 — 현재 동작 유지). 망 통제 필요 시 controlled=true + IP 추가.
   kisb = { project_id = "kisb-ge-prod", controlled = false }
   kic  = { project_id = "kic-ge-prod", controlled = false }
