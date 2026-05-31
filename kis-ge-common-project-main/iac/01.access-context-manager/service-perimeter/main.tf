@@ -80,16 +80,90 @@ resource "google_access_context_manager_service_perimeter" "central" {
           resources = ["*"]
         }
       }
+
+      # GE 자회사별 ingress (통제 IP / 통제 VIP / 비통제 전면허용) — discoveryengine 한정
+      dynamic "ingress_policies" {
+        for_each = local.ge_ingress
+        content {
+          ingress_from {
+            identity_type = "ANY_IDENTITY"
+            identities    = ingress_policies.value.identities
+
+            dynamic "sources" {
+              for_each = ingress_policies.value.access_level == null ? [] : [ingress_policies.value.access_level]
+              content {
+                access_level = sources.value
+              }
+            }
+          }
+          ingress_to {
+            operations {
+              service_name = "discoveryengine.googleapis.com"
+              method_selectors {
+                method = "*"
+              }
+            }
+            resources = [ingress_policies.value.resource]
+          }
+        }
+      }
     }
   }
 
   # Dry-run 모드 (dry_run = true) — spec block만 활성, 위반은 로깅만.
+  # status와 동일 구조(admin + GE ingress)로 두어 dry-run 시뮬레이션이 정확하도록.
   dynamic "spec" {
     for_each = var.dry_run ? [1] : []
     content {
       resources           = local.perimeter_resources
       restricted_services = var.restricted_services
       access_levels       = [google_access_context_manager_access_level.corp[0].name]
+
+      ingress_policies {
+        ingress_from {
+          identity_type = "ANY_IDENTITY"
+          identities    = var.ingress_identities
+
+          dynamic "sources" {
+            for_each = var.ingress_source_projects
+            content {
+              resource = "projects/${sources.value}"
+            }
+          }
+        }
+        ingress_to {
+          operations {
+            service_name = "*"
+          }
+          resources = ["*"]
+        }
+      }
+
+      dynamic "ingress_policies" {
+        for_each = local.ge_ingress
+        content {
+          ingress_from {
+            identity_type = "ANY_IDENTITY"
+            identities    = ingress_policies.value.identities
+
+            dynamic "sources" {
+              for_each = ingress_policies.value.access_level == null ? [] : [ingress_policies.value.access_level]
+              content {
+                access_level = sources.value
+              }
+            }
+          }
+          ingress_to {
+            operations {
+              service_name = "discoveryengine.googleapis.com"
+              method_selectors {
+                method = "*"
+              }
+            }
+            resources = [ingress_policies.value.resource]
+          }
+        }
+      }
     }
   }
 }
