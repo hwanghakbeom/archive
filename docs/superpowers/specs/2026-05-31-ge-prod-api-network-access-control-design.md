@@ -62,14 +62,14 @@ access level 또는 resource만 받으므로 IP는 반드시 access level로 감
         discoveryengine.googleapis.com (perimeter restricted_service)
    ┌──────────────────────────────────────────────────────────────┐
    │ [자회사 kih]                                                    │
-   │  access level ge_corp_kih (ip 219.255.206.0/24)                │
+   │  access level ge_corp_kih (ip 219.255.206.0/24,175.113.102/24) │
    │     └─ ingress: sources.access_level=ge_corp_kih               │
    │                 to: projects/<kih>, ops=discoveryengine        │
    │  ingress(그룹): identities=group:kih_external, sources 무관      │
    │                 to: projects/<kih>, ops=discoveryengine        │
    ├──────────────────────────────────────────────────────────────┤
    │ [자회사 kis]                                                    │
-   │  access level ge_corp_kis (ip 175.113.102.0/24)                │
+   │  access level ge_corp_kis (ip 219.255.206.0/24,175.113.102/24) │
    │     └─ ingress: → to: projects/<kis>, ops=discoveryengine      │
    │  ingress(그룹): identities=group:kis_external → projects/<kis>  │
    └──────────────────────────────────────────────────────────────┘
@@ -185,24 +185,29 @@ dynamic "ingress_policies" {
 perimeter_subsidiary_ge_access = {
   kih = {
     project_id        = "kih-ge-prod"   # 실제 프로젝트 ID로 확인
-    allowed_ip_ranges = ["219.255.206.0/24"]
+    allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"]
     external_members  = []              # kih 외부 허용 그룹 주소 (입력 대기)
   }
   kis = {
     project_id        = "kis-ge-prod"   # 실제 프로젝트 ID로 확인
-    allowed_ip_ranges = ["175.113.102.0/24"]
+    allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"]
     external_members  = []              # kis 외부 허용 그룹 주소 (입력 대기)
   }
 }
 ```
 
+> 참고: kih·kis의 `allowed_ip_ranges`가 동일하므로 **IP 차원의 자회사 간 격리는 없다**
+> (같은 corp 망 egress). 남는 격리 경계 = (1) 외부 비corp망 전면 차단, (2) 외부 그룹의
+> 자회사별 분리(ingress가 프로젝트별로 묶임). 향후 자회사가 다른 IP를 쓰면 그때 IP 격리도 발생.
+
 ## 6. 설계 결정 (열린 항목에 대한 확정)
 
 - **자회사별 IP 격리.** 단일 중앙 perimeter를 유지하되 corp IP는 자회사별 access level에 담고
   프로젝트 단위 ingress로 한정 → 자회사 간 IP 교차 통과 차단. (사용자 확정: "자회사별 격리 필요")
-- **확정 IP:** kih = `219.255.206.0/24`, kis = `175.113.102.0/24`.
-- **외부 허용 그룹도 자회사별**(`subsidiary_ge_access[*].external_members`). IP 격리와 일관되게
-  그룹 carve-out도 해당 자회사 프로젝트로만 ingress. *그룹 Workspace 주소는 아직 입력 대기.*
+- **확정 IP:** kih·kis 모두 `219.255.206.0/24` + `175.113.102.0/24` (동일 집합).
+  → **IP 차원 자회사 격리는 없음**(같은 corp 망). 격리 경계는 외부 차단 + 외부그룹 자회사별 분리.
+- **외부 허용 그룹은 자회사별**(`subsidiary_ge_access[*].external_members`). 그룹 carve-out은
+  해당 자회사 프로젝트로만 ingress → 이 차원에서는 자회사 격리 유지. *그룹 Workspace 주소는 입력 대기.*
 - **기존 5개 서비스 동작 불변.** corp IP를 perimeter-level `access_levels`에 넣지 않으므로
   enforce 중인 aiplatform/storage/bigquery/dlp/cloudkms 접근 패턴에 영향 없음.
 - **적용 범위:** 우선 kih·kis. 타 자회사(kic/kim/vam/kit/kip)는 `subsidiary_ge_access`에
@@ -220,7 +225,8 @@ perimeter_subsidiary_ge_access = {
    - X 사내망(X IP) 사용자 호출이 ingress로 통과(위반 없음)하는가.
    - 외부 비그룹 사용자 호출이 `NO_MATCHING_ACCESS_LEVEL`로 위반 기록되는가(= enforce 시 차단될 것).
    - 외부 그룹 사용자 호출이 그룹 ingress로 통과하는가.
-   - **타 자회사 IP에서의 호출이 위반 기록되는가**(격리 실측 — 예: kis IP에서 kih GE 호출 시 위반).
+   - **외부 그룹 격리 실측:** kih 외부그룹이 kis GE를 호출하면 위반(차단)되는가(그룹 carve-out이
+     프로젝트별로 묶이는지). *IP 차원은 kih·kis 동일 집합이라 inter-subsidiary 격리 테스트 해당 없음.*
 4. `content-discoveryengine.googleapis.com` 포함 여부 결정.
 5. 이상 없으면 `perimeter_dry_run = false`로 enforce 전환.
 
@@ -241,11 +247,12 @@ perimeter_subsidiary_ge_access = {
 
 1. `discoveryengine.googleapis.com`이 perimeter `restricted_services`에 포함된다.
 2. 자회사별 access level `ge_corp_<key>`가 생성되고 `ip_subnetworks`에 해당 자회사 CIDR이 설정된다
-   (kih=219.255.206.0/24, kis=175.113.102.0/24). corp IP는 perimeter-level `access_levels`에 들어가지 않는다.
+   (kih·kis 모두 `219.255.206.0/24` + `175.113.102.0/24`). corp IP는 perimeter-level `access_levels`에 들어가지 않는다.
 3. 자회사별 ingress policy 2종(사내망 IP / 외부 그룹)이 생성되고, `ingress_to.resources`가 해당
    자회사 프로젝트로 한정된다. `external_members`가 비면 그룹 ingress는 0개로 토글된다.
-4. dry-run 위반 로그로 §7의 4개 시나리오(사내망 통과 / 외부 비그룹 차단 / 외부 그룹 통과 / **타 자회사 IP 차단**)가 실측 확인된다.
-5. enforce 전환 후: 자회사 X는 X 사내망 + X 외부그룹만 GE 사용 가능, 그 외(외부 비그룹 / 타 자회사 IP)는 차단.
+4. dry-run 위반 로그로 §7 시나리오(사내망 통과 / 외부 비그룹 차단 / 외부 그룹 통과 / **외부그룹 자회사 격리**)가 실측 확인된다.
+5. enforce 전환 후: 자회사 X는 X corp망 + X 외부그룹만 GE 사용 가능, 외부 비그룹은 차단.
+   (kih·kis IP 동일이므로 corp망 내 inter-subsidiary 접근은 허용됨 — 의도된 동작.)
 6. 기존 enforce 중인 5개 서비스 접근 패턴이 회귀 없이 유지된다.
 
 ## 10. 범위 밖 (Out of scope)
