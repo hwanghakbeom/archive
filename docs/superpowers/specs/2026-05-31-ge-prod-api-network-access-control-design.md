@@ -208,8 +208,11 @@ dynamic "ingress_policies" {
 
 ### 5.3 tfvars (`terraform.tfvars`)
 
+- `perimeter_dry_run = false` — **enforce 직행 (사용자 확정, 리스크 감수).** dry-run 생략.
+  → §7 검증을 apply 직후 즉시 수행 + §8 롤백 절차 상시 대기.
+- `enable_central_perimeter = true` (현재 example은 false).
 - `perimeter_restricted_services`에 `"discoveryengine.googleapis.com"` 추가.
-  (`content-discoveryengine.googleapis.com`은 §7 dry-run 검증 후 추가 판단.)
+  (`content-discoveryengine.googleapis.com`은 1차 apply 후 로그 보고 추가 판단.)
 - `perimeter_subsidiary_ge_access` 채움 (확정된 IP):
 
 ```hcl
@@ -245,22 +248,23 @@ perimeter_subsidiary_ge_access = {
   통제 전환 시 활성. 통제 자회사의 VIP 그룹 carve-out은 해당 프로젝트로만 ingress → 자회사별 분리 유지.
 - **기존 5개 서비스 동작 불변.** corp IP를 perimeter-level `access_levels`에 넣지 않으므로
   enforce 중인 aiplatform/storage/bigquery/dlp/cloudkms 접근 패턴에 영향 없음.
+- **🔴 `perimeter_dry_run = false` (enforce 직행, 사용자 확정).** dry-run 생략. 검증은 apply
+  직후 라이브로(§7), 장애 시 즉시 롤백(§8.1). 수행은 common 프로젝트(org-stack).
 
-## 7. Load-bearing 가정과 검증 계획
+## 7. Load-bearing 가정과 (enforce 직후) 검증 계획
 
 **가정:** "VPC-SC가 Agentspace 웹 UI end-user의 discoveryengine 호출을 사용자
-네트워크/신원 컨텍스트로 평가한다." (1차 증거 = line 417 운영 관찰.)
+네트워크/신원 컨텍스트로 평가한다." (1차 증거 = line 417 운영 관찰. **dry-run 실측은 생략됨.**)
 
-**검증(필수, enforce 전):**
-1. `perimeter_dry_run = true`로 적용.
-2. 1–2주 위반 로그(Logs Explorer, `vpcServiceControlsUniqueIdentifier` / `violationReason`) 수집.
-3. 검증 항목:
-   - **통제(kih/kis):** 사내망(IP) 호출이 ingress로 통과 / 외부 비그룹 호출이
-     `NO_MATCHING_ACCESS_LEVEL`로 위반 기록(=enforce 시 차단) / VIP 그룹 호출이 그룹 ingress로 통과.
-   - **비통제(6개):** 전면 허용 ingress로 **위반이 없어야** 한다(= enforce 후에도 안 막힘). ← 회귀 방지 핵심.
-   - **그룹 격리:** kih VIP가 kis GE 호출 시 위반 기록되는가(그룹 ingress가 프로젝트별로 묶이는지).
-4. `content-discoveryengine.googleapis.com` 포함 여부 결정(누락 시 우회 경로 생기는지).
-5. 이상 없으면 `perimeter_dry_run = false`로 enforce 전환.
+**검증(enforce 직행이므로 apply 직후 즉시 수행 — 저트래픽 시간대 권장):**
+1. apply 후 **수 분 내** 각 시나리오 라이브 점검:
+   - **통제(kih/kis):** 사내망(IP)에서 GE 정상 사용 / VIP 그룹원 외부에서 정상 / 외부 비그룹 차단.
+   - **비통제(6개):** GE 정상 사용(회귀 없음). ← 가장 먼저 확인할 회귀 지표.
+   - **그룹 격리:** kih VIP가 kis GE 접근 시 차단.
+2. Logs Explorer로 `violationReason`(`NO_MATCHING_ACCESS_LEVEL` 등) 모니터링 —
+   비통제 6개·정상 사내망 사용자에 위반이 뜨면 **즉시 §8 롤백**.
+3. `content-discoveryengine.googleapis.com` 누락 시 우회 경로 생기는지 로그로 확인 후 추가 판단.
+4. 이상 시 §8 롤백 → 원인 분석 → dry-run으로 재검증.
 
 ## 8. 리스크
 
@@ -269,7 +273,17 @@ perimeter_subsidiary_ge_access = {
 - **운영(Terraform/CI) 경로:** discoveryengine 제한 시 applier가 GE 리소스를 만들 때도
   perimeter 적용 → applier SA용 ingress 필요. 기존 admin ingress(`perimeter_ingress_identities`)에
   applier 신원이 포함되는지 확인·확장.
-- **enforce 전환 = 서비스 차단 변경.** 반드시 dry-run 검증을 거친 후, 변경 시 dry-run 재가동 원칙(모듈 주석)을 따른다.
+- **🔴 enforce 직행 (dry-run 생략, 사용자 확정).** apply 순간부터 차단이 활성. 가정/ingress
+  오류 시 8개 자회사 GE 전면 장애 가능. apply는 **저트래픽 시간대 + 담당자 대기** 상태로 수행.
+
+### 8.1 롤백 절차 (장애 시 즉시)
+가장 빠른 무력화 순서:
+1. `perimeter_dry_run = true`로 변경 후 apply → enforce 해제(로깅만). **가장 빠른 전체 해제.**
+2. 또는 `perimeter_restricted_services`에서 `discoveryengine.googleapis.com` 제거 후 apply
+   → discoveryengine만 제한 해제(line 417 상태로 복귀).
+3. apply 권한자(`angelo@`/applier)가 perimeter 변경 자체에 막히지 않도록, 롤백 apply는
+   기존 admin ingress(`perimeter_ingress_identities`) + quota-project 핀(2026-05-22 gotcha) 확인.
+> 사전 준비: 롤백용 tfvars diff를 미리 작성해 두고, apply 명령을 대기 상태로 둔다.
 - **8개 전부 맵에 있어야 함.** `restricted_services`에 discoveryengine 추가는 perimeter 전역이라,
   `subsidiary_ge_access`에 없는 자회사 GE는 ingress 미존재로 **전면 차단**된다. 비통제 6개를
   `controlled=false`로 반드시 포함(전면 허용 ingress). 신규 자회사 추가 시에도 동일.
