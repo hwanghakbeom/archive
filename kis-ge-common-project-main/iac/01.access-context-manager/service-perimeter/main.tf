@@ -81,7 +81,11 @@ resource "google_access_context_manager_service_perimeter" "central" {
       ingress_policies {
         ingress_from {
           identity_type = "ANY_IDENTITY"
-          identities    = var.ingress_identities
+          # 관리자(allowed_members)는 corp access level(members)로 식별. VPC-SC는
+          # ANY_IDENTITY와 identities 동시 지정 불가 → corp access level을 source로 사용.
+          sources {
+            access_level = google_access_context_manager_access_level.corp[0].name
+          }
 
           dynamic "sources" {
             for_each = var.ingress_source_projects
@@ -139,7 +143,11 @@ resource "google_access_context_manager_service_perimeter" "central" {
       ingress_policies {
         ingress_from {
           identity_type = "ANY_IDENTITY"
-          identities    = var.ingress_identities
+          # 관리자(allowed_members)는 corp access level(members)로 식별. VPC-SC는
+          # ANY_IDENTITY와 identities 동시 지정 불가 → corp access level을 source로 사용.
+          sources {
+            access_level = google_access_context_manager_access_level.corp[0].name
+          }
 
           dynamic "sources" {
             for_each = var.ingress_source_projects
