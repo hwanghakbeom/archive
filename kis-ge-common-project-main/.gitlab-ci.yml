@@ -287,10 +287,10 @@ apply-service-perimeter:
   <<: *tf_template
   variables:
     TF_TARGET: module.service_perimeter
-    # REFRESH=true → -refresh 생략(terraform 기본 refresh) → state와 GCP 실제 대조.
+    # REFRESH=true(기본) → -refresh 생략(terraform 기본 refresh) → state와 GCP 실제 대조.
     # state엔 있는데 GCP엔 없는 drift(삭제됨)를 감지해 재생성함.
-    # 기본 false = -refresh=false(빠른 no-refresh, 기존 동작).
-    REFRESH: "false"
+    # 빠른 no-refresh가 필요하면 Run Pipeline에서 REFRESH=false.
+    REFRESH: "true"
   script:
     - |
       if [ "$REFRESH" = "true" ]; then
