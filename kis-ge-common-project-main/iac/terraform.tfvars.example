@@ -32,8 +32,8 @@ subsidiary_project_ids = [
 ]
 # 자회사 추가/변경 시 위 리스트 갱신 후 apply-service-perimeter 재실행.
 perimeter_allowed_ip_ranges       = []
-perimeter_allowed_members         = ["user:angelo@koreainvestment.com"]
-perimeter_ingress_identities      = ["user:angelo@koreainvestment.com"]
+perimeter_allowed_members         = ["user:112738@koreainvestment.com"]
+perimeter_ingress_identities      = ["user:112738@koreainvestment.com"]
 perimeter_ingress_source_projects = []
 perimeter_restricted_services = [
   "aiplatform.googleapis.com",
@@ -46,15 +46,14 @@ perimeter_restricted_services = [
 
 perimeter_subsidiary_ge_access = {
   # 통제 자회사 (사내망 IP + VIP 예외). external_members는 ingress identities로 들어가며 group:/user: 모두 가능.
-  kih = { project_id = "kih-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["group:kih-vip@koreainvestment.com"] }
-  kis = { project_id = "kis-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24"], external_members = ["group:kis-vip@koreainvestment.com"] }
-  # 비통제 자회사 (전면 허용 — 현재 동작 유지). 망 통제 필요 시 controlled=true + IP 추가.
-  kisb = { project_id = "kisb-ge-prod", controlled = false }
-  kic  = { project_id = "kic-ge-prod", controlled = false }
-  kim  = { project_id = "kim-ge-prod", controlled = false }
-  vam  = { project_id = "vam-ge-prod", controlled = false }
-  kit  = { project_id = "kit-ge-prod", controlled = false }
-  kip  = { project_id = "kip-ge-prod", controlled = false }
+  kih = { project_id = "kih-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.251/32", "175.113.102.251/32"], external_members = ["group:kih-vip@koreainvestment.com"] }
+  kis = { project_id = "kis-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24", "219.255.150.0/24"], external_members = ["group:kis-vip@koreainvestment.com"] }
+  kisb = { project_id = "kisb-ge-prod", controlled = true, allowed_ip_ranges = ["211.45.85.2/32", "211.45.85.3/32", "118.220.16.194/32", "118.220.16.195/32"], external_members = ["group:kisb-vip@koreainvestment.com"] }
+  kic  = { project_id = "kic-ge-prod", controlled = true, allowed_ip_ranges = ["121.165.102.135/32"], external_members = ["group:kic-vip@koreainvestment.com"] }
+  kim  = { project_id = "kim-ge-prod", controlled = true, allowed_ip_ranges = ["211.217.195.98/32", "211.217.195.99/32", "211.217.195.103/32", "211.217.195.106/32", "211.217.195.114/32", "211.217.195.115/32", "211.217.195.116/32"], external_members = ["group:kim-vip@koreainvestment.com"] }
+  vam  = { project_id = "vam-ge-prod", controlled = true, allowed_ip_ranges = ["125.129.169.1/32"], external_members = ["group:vam-vip@koreainvestment.com"] }
+  kit  = { project_id = "kit-ge-prod", controlled = true, allowed_ip_ranges = ["1.255.134.71/32", "1.255.134.72/32", "1.255.134.73/32", "1.255.134.74/32"], external_members = ["group:kit-vip@koreainvestment.com"] }
+  kip  = { project_id = "kip-ge-prod", controlled = true, allowed_ip_ranges = ["116.125.60.125/32"], external_members = ["group:kip-vip@koreainvestment.com"] }
 }
 
 # === Phase 2: Storage Org Policies (안전, 기본 활성) ===
