@@ -295,6 +295,11 @@ apply-service-perimeter:
     #   ① PERIMETER_ONLY=true 로 perimeter 먼저 갱신(참조 제거)
     #   ② 일반 실행(PERIMETER_ONLY=false)으로 잔여 access level 정리(삭제)
     PERIMETER_ONLY: "false"
+    # DRY_RUN — tfvars의 perimeter_dry_run을 -var로 override.
+    #   "true"  → spec(use_explicit_dry_run_spec) = 위반을 로그만 남기고 차단 안 함(검증용).
+    #   "false" → status(enforce) = 실제 차단. "default" → tfvars 값(perimeter_dry_run) 그대로.
+    # ingress/restricted_services 변경은 DRY_RUN=true로 먼저 검증 후 false로 enforce 권장.
+    DRY_RUN: "default"
   script:
     - |
       TGT="$TF_TARGET"
@@ -304,8 +309,15 @@ apply-service-perimeter:
       fi
       RF=""
       [ "$REFRESH" != "true" ] && RF="-refresh=false"
+      DRV=""
+      if [ "$DRY_RUN" = "true" ] || [ "$DRY_RUN" = "false" ]; then
+        DRV="-var=perimeter_dry_run=$DRY_RUN"
+        echo "▸ DRY_RUN=$DRY_RUN (override perimeter_dry_run)"
+      else
+        echo "▸ DRY_RUN=default — tfvars의 perimeter_dry_run 사용"
+      fi
       echo "▸ plan: target=$TGT  REFRESH=$REFRESH"
-      terraform plan -input=false $RF -target="$TGT" -out=tfplan.binary
+      terraform plan -input=false $RF $DRV -target="$TGT" -out=tfplan.binary
       terraform apply -input=false -auto-approve tfplan.binary
   when: manual
   rules:
