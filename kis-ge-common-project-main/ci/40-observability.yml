@@ -8,6 +8,7 @@ apply-aggregated-sink:
   stage: observability
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.aggregated_log_sink
   script: !reference [.tf_apply, script]
   when: manual
@@ -18,6 +19,7 @@ apply-org-audit-config:
   stage: observability
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.org_audit_config
   script: !reference [.tf_apply, script]
   when: manual
@@ -29,6 +31,7 @@ apply-ge-log-analytics:
   stage: observability
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.ge_log_analytics
   script: !reference [.tf_apply, script]
   when: manual
@@ -39,6 +42,7 @@ apply-dlp-discovery:
   stage: observability
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.dlp_discovery
   script: !reference [.tf_apply, script]
   when: manual

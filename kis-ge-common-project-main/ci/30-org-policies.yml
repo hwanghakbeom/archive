@@ -8,6 +8,7 @@ apply-storage-policies:
   stage: org-policies
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.storage_policies
   script: !reference [.tf_apply, script]
   when: manual
@@ -18,6 +19,7 @@ apply-cmek-policies:
   stage: org-policies
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.cmek_policies
   script: !reference [.tf_apply, script]
   when: manual
@@ -28,6 +30,7 @@ apply-location-policies:
   stage: org-policies
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.location_policies
   script: !reference [.tf_apply, script]
   when: manual
@@ -38,6 +41,7 @@ apply-service-restriction-policies:
   stage: org-policies
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.service_restriction_policies
   script: !reference [.tf_apply, script]
   when: manual
@@ -48,6 +52,7 @@ apply-iam-policies:
   stage: org-policies
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.iam_policies
   script: !reference [.tf_apply, script]
   when: manual

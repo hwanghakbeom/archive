@@ -29,6 +29,7 @@ unlock-state:
 bootstrap:state-bucket:
   stage: bootstrap
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_LOG: INFO   # 진단용 — 어느 API 호출에서 멈추는지 노출
   before_script:
     - |

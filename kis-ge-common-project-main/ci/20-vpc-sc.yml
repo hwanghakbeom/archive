@@ -5,6 +5,8 @@
 
 # 전체 순차 배포 (1클릭). DRY_RUN=true(기본)면 전체 plan만, false면 순차 apply.
 deploy-all:
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
   stage: vpc-sc
   extends: .tf_template
   script:
@@ -31,6 +33,7 @@ apply-services:
   stage: vpc-sc
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: google_project_service.required
   script: !reference [.tf_apply, script]
   when: manual
@@ -41,6 +44,7 @@ apply-access-policy:
   stage: vpc-sc
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.access_policy
   script: !reference [.tf_apply, script]
   when: manual
@@ -52,6 +56,7 @@ apply-service-perimeter:
   stage: vpc-sc
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.service_perimeter
     REFRESH: "true"            # state-GCP drift 감지(기본). 빠른 no-refresh는 false.
     PERIMETER_ONLY: "false"    # true → perimeter 리소스만 target(access level 참조 제거 선반영용)

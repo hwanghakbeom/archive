@@ -25,6 +25,7 @@ apply-scc-notifications:
   stage: scc
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.scc_notifications
   script: !reference [.tf_apply, script]
   when: manual
@@ -36,6 +37,7 @@ apply-scc-onprem-forwarder:
   stage: scc
   extends: .tf_template
   variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
     TF_TARGET: module.scc_onprem_forwarder
   script:
     - |
