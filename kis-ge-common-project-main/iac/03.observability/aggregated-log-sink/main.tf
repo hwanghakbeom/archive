@@ -23,17 +23,18 @@ resource "google_storage_bucket" "central_audit" {
     enabled = true
   }
 
-  retention_policy {
-    is_locked        = var.lock_retention
-    retention_period = var.retention_days * 86400 # 일 → 초
-  }
+  # 삭제금지(보존 정책/lock) 옵션 — 주석처리 (요청). 보존은 아래 lifecycle(5년)로만 처리.
+  # retention_policy {
+  #   is_locked        = var.lock_retention
+  #   retention_period = var.retention_days * 86400 # 일 → 초
+  # }
 
   lifecycle_rule {
     action {
       type = "Delete"
     }
     condition {
-      age        = var.retention_days
+      age        = var.retention_days # 5년(1825일) 경과 시 자동 삭제
       with_state = "ANY"
     }
   }

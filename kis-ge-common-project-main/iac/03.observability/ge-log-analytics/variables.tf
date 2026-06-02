@@ -27,7 +27,25 @@ variable "viewer_members" {
 }
 
 variable "grant_bucket_iam" {
-  description = "true면 viewer_members에게 각 자회사 버킷 objectViewer를 이 stack이 직접 부여(타 프로젝트 버킷 — apply 주체에 storage.admin 필요). false면 버킷 권한은 별도(자회사 stack/수동)로 부여."
+  description = "true면 BigQuery Data Transfer 서비스에이전트(DTS SA)에게 각 자회사 버킷 objectViewer를 이 stack이 부여(타 프로젝트 버킷 — apply 주체에 storage.admin 필요). false면 별도/수동 부여."
+  type        = bool
+  default     = false
+}
+
+variable "sync_schedule" {
+  description = "GCS→BQ Data Transfer 주기 (DTS schedule 문법). 예: 'every 6 hours', 'every 24 hours'."
+  type        = string
+  default     = "every 6 hours"
+}
+
+variable "partition_expiration_days" {
+  description = "테이블 파티션 만료(일). 0이면 무제한. 사용량 대시보드 비용 위해 180일 권장."
+  type        = number
+  default     = 180
+}
+
+variable "require_partition_filter" {
+  description = "쿼리에 파티션 필터 강제 여부(비용 안전). 뷰가 항상 날짜 필터를 걸 수 있으면 true."
   type        = bool
   default     = false
 }

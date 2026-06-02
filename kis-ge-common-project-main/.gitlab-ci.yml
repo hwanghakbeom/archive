@@ -427,8 +427,9 @@ apply-org-audit-config:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
-# GE 로그 external table (8개 자회사 GCS → BigQuery). enable_ge_log_analytics=false면 0 자원.
-# 전제: 자회사 sink가 observability logName 적재 + 데이터 흐른 상태(external table는 빈 경로여도 생성됨).
+# GE 로그 sync (8개 자회사 GCS → BigQuery 네이티브 파티션 테이블, Data Transfer Service).
+# enable_ge_log_analytics=false면 0 자원. 전제: BigQuery Data Transfer API 활성 +
+# DTS 서비스에이전트에 자회사 버킷 read 권한(grant_bucket_iam=true 또는 수동).
 apply-ge-log-analytics:
   stage: observability
   <<: *tf_template

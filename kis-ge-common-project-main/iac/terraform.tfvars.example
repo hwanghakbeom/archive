@@ -72,16 +72,17 @@ cmek_required_services = [
 # === Phase 3: Aggregated Log Sink ===
 ops_project_id            = "kis-gemini-common-prod"
 central_audit_bucket_name = "kis-gemini-common-prod-org-audit-logs"
-retention_days            = 2555
-lock_retention            = false
+retention_days            = 1825 # 5년 (lifecycle 자동삭제 기준). 삭제금지(retention_policy)는 코드에서 주석처리됨.
+lock_retention            = false # (retention_policy 주석처리로 현재 미사용)
 aggregated_sink_name      = "krinvest-org-audit-to-gcs"
 
 # === Phase 3: Org IAM AuditConfig (비용 영향, 사전 검토 후 활성화) ===
 enable_org_data_access_audit = false
 
-# === GE 로그 분석 (BigQuery external table, BigLake 미사용) ===
-# 8개 자회사 GCS audit 버킷(audit/data_access/observability)을 external table로 조회.
-# 전제: 자회사 audit-log-export sink filter에 observability logName 포함 + engine observability ON.
+# === GE 로그 분석 (GCS → BigQuery sync, 네이티브 파티션 테이블) ===
+# 8개 자회사 GCS 버킷(audit/data_access/observability)을 BigQuery Data Transfer로
+# 네이티브 DAY 파티션 테이블에 적재(sync). 전제: 자회사 sink filter에 observability logName +
+# engine observability ON + BigQuery Data Transfer API 활성 + DTS SA에 버킷 read 권한.
 enable_ge_log_analytics = false
 ge_logs_dataset_id      = "ge_logs"
 # 조회 계정 (Looker Studio owner 등). dataset dataViewer + (grant_bucket_iam=true 시) 버킷 objectViewer.
