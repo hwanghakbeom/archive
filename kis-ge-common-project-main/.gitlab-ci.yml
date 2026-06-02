@@ -427,9 +427,9 @@ apply-org-audit-config:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
-# GE 로그 sync (8개 자회사 GCS → BigQuery 네이티브 파티션 테이블, Data Transfer Service).
-# enable_ge_log_analytics=false면 0 자원. 전제: BigQuery Data Transfer API 활성 +
-# DTS 서비스에이전트에 자회사 버킷 read 권한(grant_bucket_iam=true 또는 수동).
+# GE 로그 federation (8개 자회사 ge_logs 테이블 → common UNION 뷰).
+# 적재는 각 자회사 stack(apply-log-analytics)에서 수행. 본 job은 federation 뷰만 생성.
+# enable_ge_log_analytics=false면 0 자원. 전제: 자회사 테이블 존재 + common이 자회사 데이터셋 read 가능.
 apply-ge-log-analytics:
   stage: observability
   <<: *tf_template

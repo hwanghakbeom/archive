@@ -1,7 +1,8 @@
--- GE 사용량 분석 뷰 (네이티브 파티션 테이블 위). 데이터 적재(transfer) 후 실행.
+-- GE 사용량 분석 뷰 (common federation 뷰 위). 자회사 적재 + federation 뷰 생성 후 실행.
 --   bq query --use_legacy_sql=false < views.sql
 -- 대상: `kis-gemini-common-prod.ge_logs.{obs_activity, data_access, activity}`
---   (DAY 파티션, field=timestamp / 중첩부 protoPayload·jsonPayload = JSON 타입 컬럼)
+--   = 8개 자회사 ge_logs 테이블을 UNION ALL한 federation 뷰 (각 자회사 테이블은 DAY 파티션).
+--   중첩부 protoPayload·jsonPayload = JSON 타입 컬럼.
 --
 -- 주의:
 --  * 중첩 필드는 JSON 타입 → JSON_VALUE(col,'$.path') 로 추출.

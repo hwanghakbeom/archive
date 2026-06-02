@@ -1,51 +1,33 @@
 variable "bq_project_id" {
-  description = "BigQuery 데이터셋/external table이 생성될 프로젝트 (common ops project)."
+  description = "federation 뷰가 생성될 프로젝트 (common ops project)."
   type        = string
 }
 
 variable "location" {
-  description = "BigQuery 데이터셋 location. 자회사 GCS 버킷과 동일 리전이어야 external table 가능 (asia-northeast3)."
+  description = "BigQuery 데이터셋 location. 자회사 테이블과 동일 리전(asia-northeast3)."
   type        = string
   default     = "asia-northeast3"
 }
 
 variable "dataset_id" {
-  description = "GE 로그 분석 데이터셋 ID."
+  description = "common federation 데이터셋 ID."
   type        = string
   default     = "ge_logs"
 }
 
 variable "subsidiary_project_ids" {
-  description = "자회사 프로젝트 ID 목록. 각 프로젝트의 audit 버킷(<id>-audit-logs)을 external table 소스로 사용."
+  description = "자회사 프로젝트 ID 목록. 각 프로젝트의 <subsidiary_dataset_id> 테이블을 UNION federation."
   type        = list(string)
+}
+
+variable "subsidiary_dataset_id" {
+  description = "자회사 stack(log-analytics)이 만든 데이터셋 ID. 기본 ge_logs."
+  type        = string
+  default     = "ge_logs"
 }
 
 variable "viewer_members" {
-  description = "external table 조회 주체 (예: user:.../group:...). dataset dataViewer + (grant_bucket_iam=true 시) 8개 버킷 objectViewer 부여."
+  description = "federation 뷰 조회 주체 (user:/group:). common dataset dataViewer 부여. (일반 뷰라 자회사 데이터셋 read도 필요)"
   type        = list(string)
   default     = []
-}
-
-variable "grant_bucket_iam" {
-  description = "true면 BigQuery Data Transfer 서비스에이전트(DTS SA)에게 각 자회사 버킷 objectViewer를 이 stack이 부여(타 프로젝트 버킷 — apply 주체에 storage.admin 필요). false면 별도/수동 부여."
-  type        = bool
-  default     = false
-}
-
-variable "sync_schedule" {
-  description = "GCS→BQ Data Transfer 주기 (DTS schedule 문법). 예: 'every 6 hours', 'every 24 hours'."
-  type        = string
-  default     = "every 6 hours"
-}
-
-variable "partition_expiration_days" {
-  description = "테이블 파티션 만료(일). 0이면 무제한. 사용량 대시보드 비용 위해 180일 권장."
-  type        = number
-  default     = 180
-}
-
-variable "require_partition_filter" {
-  description = "쿼리에 파티션 필터 강제 여부(비용 안전). 뷰가 항상 날짜 필터를 걸 수 있으면 true."
-  type        = bool
-  default     = false
 }

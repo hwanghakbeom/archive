@@ -68,8 +68,8 @@ module "org_audit_config" {
   enable_data_access_audit = var.enable_org_data_access_audit
 }
 
-# GE 로그 분석 — 8개 자회사 GCS 버킷(audit/data_access/observability)을 가리키는
-# BigQuery external table (BigLake 미사용). Looker Studio 대시보드 소스.
+# GE 로그 federation — 적재는 각 자회사 stack(log-analytics)이 자기 프로젝트 BQ로 수행하고,
+# common은 8개 자회사 테이블을 UNION ALL 뷰로 federation(데이터 복제 없음). Looker Studio 소스.
 module "ge_log_analytics" {
   count  = var.enable_ge_log_analytics ? 1 : 0
   source = "./03.observability/ge-log-analytics"
@@ -79,7 +79,6 @@ module "ge_log_analytics" {
   dataset_id             = var.ge_logs_dataset_id
   subsidiary_project_ids = var.subsidiary_project_ids
   viewer_members         = var.ge_logs_viewer_members
-  grant_bucket_iam       = var.ge_logs_grant_bucket_iam
 }
 
 # 조직 레벨 DLP Discovery — BQ/Cloud SQL/GCS의 PII/금융정보 자동 분류.

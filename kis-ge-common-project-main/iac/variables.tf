@@ -132,29 +132,23 @@ variable "central_audit_bucket_name" {
   default     = "kis-gemini-common-prod-org-audit-logs"
 }
 
-# === GE 로그 분석 (external table) ===
+# === GE 로그 federation (8개 자회사 BQ 테이블 UNION 뷰) ===
 variable "enable_ge_log_analytics" {
-  description = "8개 자회사 GCS 버킷을 가리키는 BigQuery external table 모듈 활성화."
+  description = "8개 자회사 ge_logs 테이블을 UNION federation 뷰로 묶는 모듈 활성화."
   type        = bool
   default     = false
 }
 
 variable "ge_logs_dataset_id" {
-  description = "GE 로그 external table 데이터셋 ID (ops project)."
+  description = "common federation 데이터셋 ID (ops project)."
   type        = string
   default     = "ge_logs"
 }
 
 variable "ge_logs_viewer_members" {
-  description = "external table 조회 주체 (user:/group:). dataset dataViewer + 버킷 objectViewer 대상."
+  description = "federation 뷰 조회 주체 (user:/group:). common dataset dataViewer (일반 뷰라 자회사 데이터셋 read도 필요)."
   type        = list(string)
   default     = []
-}
-
-variable "ge_logs_grant_bucket_iam" {
-  description = "true면 viewer_members에게 각 자회사 버킷 objectViewer를 이 stack이 부여(타 프로젝트 버킷 — apply 주체 권한 필요)."
-  type        = bool
-  default     = false
 }
 
 variable "retention_days" {

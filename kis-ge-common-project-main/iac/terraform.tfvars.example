@@ -79,19 +79,16 @@ aggregated_sink_name      = "krinvest-org-audit-to-gcs"
 # === Phase 3: Org IAM AuditConfig (비용 영향, 사전 검토 후 활성화) ===
 enable_org_data_access_audit = false
 
-# === GE 로그 분석 (GCS → BigQuery sync, 네이티브 파티션 테이블) ===
-# 8개 자회사 GCS 버킷(audit/data_access/observability)을 BigQuery Data Transfer로
-# 네이티브 DAY 파티션 테이블에 적재(sync). 전제: 자회사 sink filter에 observability logName +
-# engine observability ON + BigQuery Data Transfer API 활성 + DTS SA에 버킷 read 권한.
+# === GE 로그 federation (8개 자회사 BQ 테이블 UNION 뷰) ===
+# 적재는 각 자회사 stack(log-analytics)이 자기 프로젝트 BQ(ge_logs.*)로 수행하고,
+# common은 8개를 UNION ALL 뷰로 federation(데이터 복제 없음).
+# 전제: 자회사 log-analytics apply 완료(테이블 존재) + 조회자가 자회사 데이터셋 read 권한.
 enable_ge_log_analytics = false
 ge_logs_dataset_id      = "ge_logs"
-# 조회 계정 (Looker Studio owner 등). dataset dataViewer + (grant_bucket_iam=true 시) 버킷 objectViewer.
+# 조회 계정 (Looker Studio owner 등). common dataset dataViewer (자회사 데이터셋 read도 필요).
 ge_logs_viewer_members = [
   # "user:112738@koreainvestment.com",
 ]
-# 타 프로젝트(자회사) 버킷 IAM을 이 stack이 직접 부여할지. apply 주체에 해당 버킷 권한 필요.
-# false면 버킷 objectViewer는 자회사 stack 또는 수동 부여.
-ge_logs_grant_bucket_iam = false
 
 # === DLP Discovery (조직 레벨, SCC Premium + 비용 영향 큼) ===
 # SCC Premium tier 활성화 + SA에 roles/dlp.organizationsAdmin 부여 후 enable=true.
