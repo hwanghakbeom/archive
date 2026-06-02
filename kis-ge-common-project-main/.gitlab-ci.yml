@@ -427,6 +427,19 @@ apply-org-audit-config:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
     - if: '$CI_PIPELINE_SOURCE == "web"'
 
+# GE 로그 external table (8개 자회사 GCS → BigQuery). enable_ge_log_analytics=false면 0 자원.
+# 전제: 자회사 sink가 observability logName 적재 + 데이터 흐른 상태(external table는 빈 경로여도 생성됨).
+apply-ge-log-analytics:
+  stage: observability
+  <<: *tf_template
+  variables:
+    TF_TARGET: module.ge_log_analytics
+  script: *tf_apply_target
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
 # DLP Discovery (조직 레벨). SCC Premium tier 사전 활성화 필수.
 # enable_dlp_discovery=false 기본 → 자원 0개.
 apply-dlp-discovery:

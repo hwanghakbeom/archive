@@ -49,7 +49,7 @@ perimeter_subsidiary_ge_access = {
   kih = { project_id = "kih-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.251/32", "175.113.102.251/32"], external_members = ["group:kih-vip@koreainvestment.com"] }
   kis = { project_id = "kis-ge-prod", controlled = true, allowed_ip_ranges = ["219.255.206.0/24", "175.113.102.0/24", "219.255.150.0/24"], external_members = ["group:kis-vip@koreainvestment.com"] }
   kisb = { project_id = "kisb-ge-prod", controlled = true, allowed_ip_ranges = ["211.45.85.2/32", "211.45.85.3/32", "118.220.16.194/32", "118.220.16.195/32"], external_members = ["group:kisb-vip@koreainvestment.com"] }
-  kic  = { project_id = "kic-ge-prod", controlled = true, allowed_ip_ranges = ["121.165.102.135/32"], external_members = ["group:kic-vip@koreainvestment.com"] }
+  kic  = { project_id = "kic-ge-prod", controlled = true, allowed_ip_ranges = ["121.165.102.135/32","57.140.0.0/16"], external_members = ["group:kic-vip@koreainvestment.com"] }
   kim  = { project_id = "kim-ge-prod", controlled = true, allowed_ip_ranges = ["211.217.195.98/32", "211.217.195.99/32", "211.217.195.103/32", "211.217.195.106/32", "211.217.195.114/32", "211.217.195.115/32", "211.217.195.116/32"], external_members = ["group:kim-vip@koreainvestment.com"] }
   vam  = { project_id = "vam-ge-prod", controlled = true, allowed_ip_ranges = ["125.129.169.1/32"], external_members = ["group:vam-vip@koreainvestment.com"] }
   kit  = { project_id = "kit-ge-prod", controlled = true, allowed_ip_ranges = ["1.255.134.71/32", "1.255.134.72/32", "1.255.134.73/32", "1.255.134.74/32"], external_members = ["group:kit-vip@koreainvestment.com"] }
@@ -78,6 +78,19 @@ aggregated_sink_name      = "krinvest-org-audit-to-gcs"
 
 # === Phase 3: Org IAM AuditConfig (비용 영향, 사전 검토 후 활성화) ===
 enable_org_data_access_audit = false
+
+# === GE 로그 분석 (BigQuery external table, BigLake 미사용) ===
+# 8개 자회사 GCS audit 버킷(audit/data_access/observability)을 external table로 조회.
+# 전제: 자회사 audit-log-export sink filter에 observability logName 포함 + engine observability ON.
+enable_ge_log_analytics = false
+ge_logs_dataset_id      = "ge_logs"
+# 조회 계정 (Looker Studio owner 등). dataset dataViewer + (grant_bucket_iam=true 시) 버킷 objectViewer.
+ge_logs_viewer_members = [
+  # "user:112738@koreainvestment.com",
+]
+# 타 프로젝트(자회사) 버킷 IAM을 이 stack이 직접 부여할지. apply 주체에 해당 버킷 권한 필요.
+# false면 버킷 objectViewer는 자회사 stack 또는 수동 부여.
+ge_logs_grant_bucket_iam = false
 
 # === DLP Discovery (조직 레벨, SCC Premium + 비용 영향 큼) ===
 # SCC Premium tier 활성화 + SA에 roles/dlp.organizationsAdmin 부여 후 enable=true.
