@@ -32,7 +32,13 @@ subsidiary_project_ids = [
 ]
 # 자회사 추가/변경 시 위 리스트 갱신 후 apply-service-perimeter 재실행.
 perimeter_allowed_ip_ranges       = []
-perimeter_allowed_members         = ["user:112738@koreainvestment.com"]
+# corp_access access level members → admin ingress(전 restricted service 허용).
+# IaC 배포 SA를 포함해야 perimeter 내 자회사에 dlp/kms/storage/discoveryengine 등 write 가능
+# (미포함 시 신규/변경 apply가 VPC-SC 403). 배포 SA = kis_gemini_common_prod_iac.
+perimeter_allowed_members = [
+  "user:112738@koreainvestment.com",
+  "serviceAccount:kis-gemini-common-prod-iac@kis-gemini-common-prod.iam.gserviceaccount.com",
+]
 perimeter_ingress_identities      = ["user:112738@koreainvestment.com"]
 perimeter_ingress_source_projects = []
 perimeter_restricted_services = [
