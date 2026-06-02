@@ -22,9 +22,7 @@ variables:
   CHECKPOINT_DISABLE: "1"
   # provider plugin 캐시 — job마다 google provider(~150MB) 재다운로드 방지 (속도↑)
   TF_PLUGIN_CACHE_DIR: "$CI_PROJECT_DIR/.tf-plugin-cache"
-  # ── DRY_RUN — 모든 apply 성격 job의 기본값(true=plan만, apply 안 함). ──
-  # 실제 적용은 Run pipeline에서 DRY_RUN=false 로 override. (각 task가 이 값을 상속)
-  DRY_RUN: "true"
+  # DRY_RUN은 글로벌이 아닌 각 job(variables)에 개별 정의됨(기본 "true"). 적용 시 job/Run pipeline에서 false.
 
 # provider 캐시를 job 간 공유 (init 시간 대폭 단축)
 cache:
