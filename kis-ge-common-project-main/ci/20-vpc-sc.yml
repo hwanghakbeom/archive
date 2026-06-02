@@ -1,0 +1,87 @@
+# Stage: vpc-sc — 01.access-context-manager/* (Access Policy + Service Perimeter)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# 전체 순차 배포 (1클릭). DRY_RUN=true(기본)면 전체 plan만, false면 순차 apply.
+deploy-all:
+  stage: vpc-sc
+  extends: .tf_template
+  script:
+    - |
+      set -e
+      if [ "$DRY_RUN" != "false" ]; then
+        echo "▸ DRY_RUN=true(기본) — 전체 plan만 (apply 생략)."
+        terraform plan -input=false
+        exit 0
+      fi
+      echo "▸ DRY_RUN=false — 전체 순차 apply"
+      for T in google_project_service.required module.access_policy module.service_perimeter \
+               module.storage_policies module.cmek_policies module.location_policies \
+               module.service_restriction_policies module.iam_policies module.aggregated_log_sink \
+               module.org_audit_config module.dlp_discovery module.scc_notifications module.scc_onprem_forwarder; do
+        terraform apply -input=false -refresh=false -auto-approve -target="$T"
+      done
+      terraform plan -input=false   # 최종 no-op 확인 (domain_policies 제외)
+  when: manual
+  rules: *main_rules
+
+# 필수 GCP API 활성화.
+apply-services:
+  stage: vpc-sc
+  extends: .tf_template
+  variables:
+    TF_TARGET: google_project_service.required
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# Access Context Manager Access Policy (조직당 1개).
+apply-access-policy:
+  stage: vpc-sc
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.access_policy
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# 통합 Service Perimeter — 모든 자회사 프로젝트 포함.
+# DRY_RUN(글로벌)=apply 여부 / PERIMETER_DRY_RUN=perimeter_dry_run(enforce vs spec) override.
+apply-service-perimeter:
+  stage: vpc-sc
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.service_perimeter
+    REFRESH: "true"            # state-GCP drift 감지(기본). 빠른 no-refresh는 false.
+    PERIMETER_ONLY: "false"    # true → perimeter 리소스만 target(access level 참조 제거 선반영용)
+    # PERIMETER_DRY_RUN: tfvars의 perimeter_dry_run을 -var override.
+    #   "true"=spec(로그만), "false"=status(enforce), "default"=tfvars 값.
+    PERIMETER_DRY_RUN: "default"
+  script:
+    - |
+      set -e
+      TGT="$TF_TARGET"
+      if [ "$PERIMETER_ONLY" = "true" ]; then
+        TGT='module.service_perimeter.google_access_context_manager_service_perimeter.central[0]'
+        echo "▸ PERIMETER_ONLY=true — perimeter 리소스만 적용: $TGT"
+      fi
+      RF=""
+      [ "$REFRESH" != "true" ] && RF="-refresh=false"
+      DRV=""
+      if [ "$PERIMETER_DRY_RUN" = "true" ] || [ "$PERIMETER_DRY_RUN" = "false" ]; then
+        DRV="-var=perimeter_dry_run=$PERIMETER_DRY_RUN"
+        echo "▸ PERIMETER_DRY_RUN=$PERIMETER_DRY_RUN (override perimeter_dry_run)"
+      else
+        echo "▸ PERIMETER_DRY_RUN=default — tfvars의 perimeter_dry_run 사용"
+      fi
+      echo "▸ plan: target=$TGT  REFRESH=$REFRESH  DRY_RUN=$DRY_RUN"
+      terraform plan -input=false $RF $DRV -target="$TGT" -out=tfplan.binary
+      if [ "$DRY_RUN" = "false" ]; then
+        echo "▸ DRY_RUN=false — apply 실행"
+        terraform apply -input=false -auto-approve tfplan.binary
+      else
+        echo "▸ DRY_RUN=true(기본) — plan만. 적용하려면 DRY_RUN=false."
+      fi
+  when: manual
+  rules: *main_rules

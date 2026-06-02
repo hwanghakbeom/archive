@@ -1,0 +1,10 @@
+# Stage: verify — 전체 plan no-op (항상 plan만)
+apply-verify:
+  stage: verify
+  extends: .tf_template
+  script:
+    - terraform plan -input=false
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'

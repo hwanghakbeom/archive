@@ -1,0 +1,45 @@
+# Stage: observability — 03.observability/*
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# Organization log sink + 중앙 audit GCS bucket.
+apply-aggregated-sink:
+  stage: observability
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.aggregated_log_sink
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# google_organization_iam_audit_config (DATA_READ/WRITE 강제, 비용 영향).
+apply-org-audit-config:
+  stage: observability
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.org_audit_config
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# GE 로그 federation (8개 자회사 ge_logs 테이블 → common UNION 뷰).
+# 적재는 각 자회사 stack(apply-log-analytics)에서 수행. 본 job은 federation 뷰만 생성.
+apply-ge-log-analytics:
+  stage: observability
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.ge_log_analytics
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# DLP Discovery (조직 레벨). SCC Premium tier 사전 활성화 필수. 기본 0 자원.
+apply-dlp-discovery:
+  stage: observability
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.dlp_discovery
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules

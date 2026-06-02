@@ -1,0 +1,63 @@
+# Stage: org-policies — 02.org-policies/*
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# storage.publicAccessPrevention + uniformBucketLevelAccess.
+apply-storage-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.storage_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# gcp.restrictNonCmekServices (기본 비활성 toggle).
+apply-cmek-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.cmek_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# gcp.resourceLocations (한국 데이터 주권).
+apply-location-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.location_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# gcp.restrictServiceUsage (허용 API 화이트리스트).
+apply-service-restriction-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.service_restriction_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# iam.disable* (SA key / cross-project / auto-grants).
+apply-iam-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    TF_TARGET: module.iam_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# iam.allowedPolicyMemberDomains — ⚠️ PLAN-ONLY (mz.co.kr lock 위험). 항상 plan만.
+plan-domain-policies:
+  stage: org-policies
+  extends: .tf_template
+  script:
+    - terraform plan -input=false -target=module.domain_policies
+  when: manual
+  rules: *main_rules
