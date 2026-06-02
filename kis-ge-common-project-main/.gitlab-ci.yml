@@ -47,13 +47,15 @@ default:
 
 # 모듈별 job 정의
 include:
+  # 스택 레벨(특정 iac 모듈에 속하지 않는 job)
   - local: ci/00-bootstrap.yml
   - local: ci/10-validate.yml
-  - local: ci/20-vpc-sc.yml
-  - local: ci/30-org-policies.yml
-  - local: ci/40-observability.yml
-  - local: ci/50-scc.yml
   - local: ci/90-verify.yml
+  # iac 모듈 디렉토리별 job
+  - local: iac/01.access-context-manager/.gitlab-ci.yml
+  - local: iac/02.org-policies/.gitlab-ci.yml
+  - local: iac/03.observability/.gitlab-ci.yml
+  - local: iac/04.scc/.gitlab-ci.yml
 
 # ------------------------------------------------------------
 # 공통 템플릿 (hidden job) — GCS backend init.
