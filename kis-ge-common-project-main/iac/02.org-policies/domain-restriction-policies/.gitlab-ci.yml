@@ -1,0 +1,12 @@
+# CI: 02.org-policies/domain-restriction-policies (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+plan-domain-policies:
+  stage: org-policies
+  extends: .tf_template
+  script:
+    - terraform plan -input=false -target=module.domain_policies
+  when: manual
+  rules: *main_rules

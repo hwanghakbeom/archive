@@ -1,0 +1,16 @@
+# CI: 02.org-policies/iam-policies (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+apply-iam-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    TF_TARGET: module.iam_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# iam.allowedPolicyMemberDomains — ⚠️ PLAN-ONLY (mz.co.kr lock 위험). 항상 plan만.

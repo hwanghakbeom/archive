@@ -1,0 +1,17 @@
+# CI: 03.observability/org-audit-config (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+apply-org-audit-config:
+  stage: observability
+  extends: .tf_template
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    TF_TARGET: module.org_audit_config
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# GE 로그 federation (8개 자회사 ge_logs 테이블 → common UNION 뷰).
+# 적재는 각 자회사 stack(apply-log-analytics)에서 수행. 본 job은 federation 뷰만 생성.

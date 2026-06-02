@@ -1,0 +1,14 @@
+# CI: 03.observability/dlp-discovery (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+apply-dlp-discovery:
+  stage: observability
+  extends: .tf_template
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    TF_TARGET: module.dlp_discovery
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules

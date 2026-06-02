@@ -1,0 +1,17 @@
+# CI: 01.access-context-manager/access-policy (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+apply-access-policy:
+  stage: vpc-sc
+  extends: .tf_template
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    TF_TARGET: module.access_policy
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# 통합 Service Perimeter — 모든 자회사 프로젝트 포함.
+# DRY_RUN(글로벌)=apply 여부 / PERIMETER_DRY_RUN=perimeter_dry_run(enforce vs spec) override.

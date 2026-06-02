@@ -1,0 +1,43 @@
+# CI: 01.access-context-manager/service-perimeter (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+apply-service-perimeter:
+  stage: vpc-sc
+  extends: .tf_template
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    TF_TARGET: module.service_perimeter
+    REFRESH: "true"            # state-GCP drift 감지(기본). 빠른 no-refresh는 false.
+    PERIMETER_ONLY: "false"    # true → perimeter 리소스만 target(access level 참조 제거 선반영용)
+    # PERIMETER_DRY_RUN: tfvars의 perimeter_dry_run을 -var override.
+    #   "true"=spec(로그만), "false"=status(enforce), "default"=tfvars 값.
+    PERIMETER_DRY_RUN: "default"
+  script:
+    - |
+      set -e
+      TGT="$TF_TARGET"
+      if [ "$PERIMETER_ONLY" = "true" ]; then
+        TGT='module.service_perimeter.google_access_context_manager_service_perimeter.central[0]'
+        echo "▸ PERIMETER_ONLY=true — perimeter 리소스만 적용: $TGT"
+      fi
+      RF=""
+      [ "$REFRESH" != "true" ] && RF="-refresh=false"
+      DRV=""
+      if [ "$PERIMETER_DRY_RUN" = "true" ] || [ "$PERIMETER_DRY_RUN" = "false" ]; then
+        DRV="-var=perimeter_dry_run=$PERIMETER_DRY_RUN"
+        echo "▸ PERIMETER_DRY_RUN=$PERIMETER_DRY_RUN (override perimeter_dry_run)"
+      else
+        echo "▸ PERIMETER_DRY_RUN=default — tfvars의 perimeter_dry_run 사용"
+      fi
+      echo "▸ plan: target=$TGT  REFRESH=$REFRESH  DRY_RUN=$DRY_RUN"
+      terraform plan -input=false $RF $DRV -target="$TGT" -out=tfplan.binary
+      if [ "$DRY_RUN" = "false" ]; then
+        echo "▸ DRY_RUN=false — apply 실행"
+        terraform apply -input=false -auto-approve tfplan.binary
+      else
+        echo "▸ DRY_RUN=true(기본) — plan만. 적용하려면 DRY_RUN=false."
+      fi
+  when: manual
+  rules: *main_rules

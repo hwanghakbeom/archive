@@ -1,0 +1,16 @@
+# CI: 02.org-policies/cmek-policies (모듈 디렉토리 내 정의)
+.main_rules: &main_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+apply-cmek-policies:
+  stage: org-policies
+  extends: .tf_template
+  variables:
+    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    TF_TARGET: module.cmek_policies
+  script: !reference [.tf_apply, script]
+  when: manual
+  rules: *main_rules
+
+# gcp.resourceLocations (한국 데이터 주권).

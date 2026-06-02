@@ -51,10 +51,22 @@ include:
   - local: ci/00-bootstrap.yml
   - local: ci/10-validate.yml
   - local: ci/90-verify.yml
-  # iac 모듈 디렉토리별 job
+  # iac 서브모듈/모듈 디렉토리별 job
+  - local: iac/01.access-context-manager/access-policy/.gitlab-ci.yml
+  - local: iac/01.access-context-manager/service-perimeter/.gitlab-ci.yml
   - local: iac/01.access-context-manager/.gitlab-ci.yml
-  - local: iac/02.org-policies/.gitlab-ci.yml
-  - local: iac/03.observability/.gitlab-ci.yml
+  - local: iac/02.org-policies/storage-policies/.gitlab-ci.yml
+  - local: iac/02.org-policies/cmek-policies/.gitlab-ci.yml
+  - local: iac/02.org-policies/location-policies/.gitlab-ci.yml
+  - local: iac/02.org-policies/service-restriction-policies/.gitlab-ci.yml
+  - local: iac/02.org-policies/iam-policies/.gitlab-ci.yml
+  - local: iac/02.org-policies/domain-restriction-policies/.gitlab-ci.yml
+  - local: iac/03.observability/aggregated-log-sink/.gitlab-ci.yml
+  - local: iac/03.observability/org-audit-config/.gitlab-ci.yml
+  - local: iac/03.observability/ge-log-analytics/.gitlab-ci.yml
+  - local: iac/03.observability/dlp-discovery/.gitlab-ci.yml
+  - local: iac/04.scc/notification-config/.gitlab-ci.yml
+  - local: iac/04.scc/onprem-forwarder/.gitlab-ci.yml
   - local: iac/04.scc/.gitlab-ci.yml
 
 # ------------------------------------------------------------
