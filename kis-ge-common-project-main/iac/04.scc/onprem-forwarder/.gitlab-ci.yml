@@ -7,14 +7,14 @@ apply-scc-onprem-forwarder:
   stage: scc
   extends: .tf_template
   variables:
-    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
     TF_TARGET: module.scc_onprem_forwarder
   script:
     - |
       set -e
       echo "▸ TF_TARGET=$TF_TARGET  DRY_RUN=$DRY_RUN"
       terraform plan -input=false -target="$TF_TARGET" -out=tfplan.binary
-      if [ "$DRY_RUN" = "false" ]; then
+      if [ "$DRY_RUN" != "true" ]; then
         echo "▸ DRY_RUN=false — apply 실행"
         terraform apply -input=false -auto-approve tfplan.binary
         echo "================ Deployed Outputs ================"
@@ -25,7 +25,7 @@ apply-scc-onprem-forwarder:
         terraform output -no-color scc_forwarder_service_account   || true
         echo "=================================================="
       else
-        echo "▸ DRY_RUN=true(기본) — plan만. 적용하려면 DRY_RUN=false."
+        echo "▸ DRY_RUN=true(기본) — plan만. 적용하려면 이 줄(DRY_RUN) 주석처리 또는 DRY_RUN=false."
       fi
   when: manual
   rules: *main_rules

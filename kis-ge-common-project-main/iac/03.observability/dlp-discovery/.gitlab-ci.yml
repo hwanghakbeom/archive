@@ -7,7 +7,7 @@ apply-dlp-discovery:
   stage: observability
   extends: .tf_template
   variables:
-    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
     TF_TARGET: module.dlp_discovery
   script: !reference [.tf_apply, script]
   when: manual

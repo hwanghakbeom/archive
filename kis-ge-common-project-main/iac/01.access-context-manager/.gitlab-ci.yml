@@ -5,13 +5,13 @@
 
 deploy-all:
   variables:
-    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
   stage: vpc-sc
   extends: .tf_template
   script:
     - |
       set -e
-      if [ "$DRY_RUN" != "false" ]; then
+      if [ "$DRY_RUN" = "true" ]; then
         echo "▸ DRY_RUN=true(기본) — 전체 plan만 (apply 생략)."
         terraform plan -input=false
         exit 0
@@ -33,7 +33,7 @@ apply-services:
   stage: vpc-sc
   extends: .tf_template
   variables:
-    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
     TF_TARGET: google_project_service.required
   script: !reference [.tf_apply, script]
   when: manual

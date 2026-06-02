@@ -95,9 +95,9 @@ include:
       set -e
       echo "▸ TF_TARGET=$TF_TARGET  DRY_RUN=$DRY_RUN"
       terraform plan -input=false -refresh=false -target="$TF_TARGET" -out=tfplan.binary
-      if [ "$DRY_RUN" = "false" ]; then
+      if [ "$DRY_RUN" != "true" ]; then
         echo "▸ DRY_RUN=false — apply 실행"
         terraform apply -input=false -auto-approve tfplan.binary
       else
-        echo "▸ DRY_RUN=true(기본) — plan만 수행. 적용하려면 Run pipeline에서 DRY_RUN=false 로 실행."
+        echo "▸ DRY_RUN=true(기본) — plan만 수행. 적용하려면 DRY_RUN 주석처리 또는 DRY_RUN=false."
       fi

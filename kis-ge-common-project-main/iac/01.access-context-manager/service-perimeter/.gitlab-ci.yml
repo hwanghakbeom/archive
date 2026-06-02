@@ -7,7 +7,7 @@ apply-service-perimeter:
   stage: vpc-sc
   extends: .tf_template
   variables:
-    DRY_RUN: "true"   # 기본 plan/skip. 적용 시 false
+    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
     TF_TARGET: module.service_perimeter
     REFRESH: "true"            # state-GCP drift 감지(기본). 빠른 no-refresh는 false.
     PERIMETER_ONLY: "false"    # true → perimeter 리소스만 target(access level 참조 제거 선반영용)
@@ -33,11 +33,11 @@ apply-service-perimeter:
       fi
       echo "▸ plan: target=$TGT  REFRESH=$REFRESH  DRY_RUN=$DRY_RUN"
       terraform plan -input=false $RF $DRV -target="$TGT" -out=tfplan.binary
-      if [ "$DRY_RUN" = "false" ]; then
+      if [ "$DRY_RUN" != "true" ]; then
         echo "▸ DRY_RUN=false — apply 실행"
         terraform apply -input=false -auto-approve tfplan.binary
       else
-        echo "▸ DRY_RUN=true(기본) — plan만. 적용하려면 DRY_RUN=false."
+        echo "▸ DRY_RUN=true(기본) — plan만. 적용하려면 이 줄(DRY_RUN) 주석처리 또는 DRY_RUN=false."
       fi
   when: manual
   rules: *main_rules
