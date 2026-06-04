@@ -9,6 +9,7 @@ stages:
   - org-policies    # 02.org-policies/*           — storage / cmek / location / service / iam / domain
   - observability   # 03.observability/*          — aggregated-log-sink + org-audit-config + ge-log-analytics
   - scc             # 04.scc/*                    — SCC tier 게이트 + notification config + forwarder
+  - apply           # 전체/타깃 apply (plan job과 독립 실행 가능한 generic apply)
   - verify          # 전체 plan no-op
 
 variables:

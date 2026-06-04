@@ -24,25 +24,56 @@ validate:
     - terraform fmt -check -recursive $TF_ROOT
     - cd $TF_ROOT
     - cp -f terraform.tfvars.example terraform.tfvars
-    - terraform init
-        -backend-config="bucket=$TF_STATE_BUCKET"
-        -backend-config="prefix=$TF_STATE_PREFIX"
+    # 문법/구성 검증만이므로 backend(state) 불필요 — 단독 실행 가능.
+    - terraform init -backend=false -input=false
     - terraform validate
     - tflint --init
     - tflint --recursive
     - cd "$CI_PROJECT_DIR"
     - tfsec $TF_ROOT --minimum-severity HIGH
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # MR: 자동 실행
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'        # main/web: 수동 실행
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
 
+# 전체(또는 TF_TARGET 모듈) plan만 — 변경 미리보기.
 plan:
   stage: plan
   extends: .tf_template
+  variables:
+    TF_TARGET: ""   # 비우면 전체 plan. 특정 모듈만: TF_TARGET=module.central_perimeter 등
   script:
-    - terraform plan -input=false -out=tfplan.binary
+    - |
+      set -e
+      echo "▸ plan-only — TF_TARGET=${TF_TARGET:-(전체)}"
+      terraform plan -input=false ${TF_TARGET:+-target=$TF_TARGET} -out=tfplan.binary
   artifacts:
     paths:
       - $TF_ROOT/tfplan.binary
     expire_in: 1 week
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # MR: 자동 실행
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'        # main/web: 수동 실행
+      when: manual
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: manual
+
+# 전체(또는 TF_TARGET 모듈) apply — plan job과 독립 실행 가능 (자체 plan 후 즉시 apply).
+# 변경 미리보기가 필요하면 plan job을 먼저 실행해 확인 후 이 job 실행.
+apply:
+  stage: apply
+  extends: .tf_template
+  variables:
+    TF_TARGET: ""   # 비우면 전체 apply. 특정 모듈만: TF_TARGET=module.central_perimeter 등
+  script:
+    - |
+      set -e
+      echo "▸ apply — TF_TARGET=${TF_TARGET:-(전체)}  (plan 후 즉시 apply)"
+      terraform plan -input=false ${TF_TARGET:+-target=$TF_TARGET} -out=tfplan.binary
+      terraform apply -input=false -auto-approve tfplan.binary
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
