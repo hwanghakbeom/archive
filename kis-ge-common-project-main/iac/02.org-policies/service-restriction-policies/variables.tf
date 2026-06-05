@@ -41,5 +41,8 @@ variable "allowed_services" {
     # BigQuery (자회사 stack에서 추후 활성화 가능)
     "is:bigquery.googleapis.com",
     "is:bigquerystorage.googleapis.com",
+    # GCS→BQ 로그 적재 (자회사 log-analytics 모듈의 Data Transfer Service).
+    # 누락 시 transfer config 생성이 403 "resource usage restriction violated".
+    "is:bigquerydatatransfer.googleapis.com",
   ]
 }
