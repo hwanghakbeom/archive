@@ -158,6 +158,8 @@ allowed_member_domains    = []
 #   3. CI의 enable-scc-tier 게이트 통과
 #   4. enable_phase6 = true 로 변경하고 main에 push
 enable_phase6               = true
+# Phase 6-C: MA 런타임 탐지 → SCC findings 브리지 (자회사 sink는 자회사 stack에서)
+enable_ma_runtime_findings  = true
 scc_notification_topic_name = "scc-findings-notifications"
 scc_notification_config_id  = "all-active-findings"
 scc_notification_filter     = "state=\"ACTIVE\" AND (severity=\"HIGH\" OR severity=\"CRITICAL\")"

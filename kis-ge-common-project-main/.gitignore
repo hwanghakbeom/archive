@@ -8,3 +8,4 @@ tfplan.binary
 *.tfstate.backup
 .envrc
 .env
+iac/04.scc/ma-runtime-findings/.build/

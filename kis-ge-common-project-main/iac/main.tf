@@ -175,3 +175,21 @@ module "scc_onprem_forwarder" {
   egress_ip_name         = var.scc_forwarder_egress_ip_name
   use_existing_egress_ip = var.scc_forwarder_use_existing_egress_ip
 }
+
+# =============================================================
+# Phase 6-C: MA 런타임 탐지 → SCC findings 브리지 (scctest PoC 이식)
+# =============================================================
+# 자회사 Model Armor SanitizeOperation(MATCH_FOUND) 로그를 SCC finding으로 변환.
+# 생성된 finding(HIGH/ACTIVE)은 기존 scc_notifications filter에 자동 매치되어
+# onprem-forwarder 경로로 SIEM/온프렘에 전달된다. 상세: SCC - ARCHITECTURE.md.
+# 자회사측 sink는 자회사 stack의 ma-detections-sink 모듈(③)이 담당.
+module "ma_runtime_findings" {
+  source = "./04.scc/ma-runtime-findings"
+
+  enable                 = var.enable_ma_runtime_findings
+  project_id             = var.ops_project_id
+  org_id                 = var.org_id
+  region                 = var.region_primary
+  topic_name             = var.ma_detections_topic_name
+  subsidiary_project_ids = var.ma_subsidiary_project_ids
+}

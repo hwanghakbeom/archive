@@ -18,7 +18,13 @@ locals {
     "iam.googleapis.com",                  # Phase 3-B (Audit Config)
     "securitycenter.googleapis.com",       # Phase 6 (SCC, 선택)
     "pubsub.googleapis.com",               # Phase 6 (SCC notification, 선택)
-    "dlp.googleapis.com",                  # DLP Discovery (선택)
+    # Phase 6-C (MA→SCC 브리지 함수)
+    "cloudfunctions.googleapis.com",
+    "run.googleapis.com",
+    "eventarc.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "dlp.googleapis.com", # DLP Discovery (선택)
     # ─── GE provider의 billing_project=kis-gemini-common-prod + user_project_override
     # 때문에 GE side API 호출의 quota가 여기로 라우팅됨.
     # resource project(kis-ge-prod) 뿐 아니라 quota project(여기)에도

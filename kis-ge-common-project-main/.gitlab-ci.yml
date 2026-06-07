@@ -66,6 +66,7 @@ include:
   - local: iac/03.observability/dlp-discovery/.gitlab-ci.yml
   - local: iac/04.scc/notification-config/.gitlab-ci.yml
   - local: iac/04.scc/onprem-forwarder/.gitlab-ci.yml
+  - local: iac/04.scc/ma-runtime-findings/.gitlab-ci.yml
   - local: iac/04.scc/.gitlab-ci.yml
 
 # ------------------------------------------------------------

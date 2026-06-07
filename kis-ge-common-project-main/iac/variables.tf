@@ -380,3 +380,25 @@ variable "scc_forwarder_use_existing_egress_ip" {
 
 # Secret Manager 연동 변수는 PubSub→TCP 구조에서 제거됨 (HTTP 헤더 인증 없음).
 # 추후 TCP 핸드셰이크 토큰 등 필요하면 재도입 가능.
+
+# ─── Phase 6-C: MA 런타임 → SCC findings 브리지 ───
+variable "enable_ma_runtime_findings" {
+  description = "MA 런타임 탐지 → SCC findings 파이프라인. SCC Premium tier 전제(enable_phase6와 동일)."
+  type        = bool
+  default     = false
+}
+
+variable "ma_detections_topic_name" {
+  description = "MA 탐지 로그 중앙 수집 topic 이름 (자회사 sink destination과 일치)."
+  type        = string
+  default     = "ma-detections"
+}
+
+variable "ma_subsidiary_project_ids" {
+  description = "MA 탐지를 보내는 자회사 프로젝트 목록 — finding resourceName 매핑용."
+  type        = list(string)
+  default = [
+    "kih-ge-prod", "kis-ge-prod", "kisb-ge-prod", "kic-ge-prod",
+    "kim-ge-prod", "vam-ge-prod", "kit-ge-prod", "kip-ge-prod",
+  ]
+}
