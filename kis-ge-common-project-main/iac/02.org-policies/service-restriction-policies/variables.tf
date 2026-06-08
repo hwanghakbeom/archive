@@ -44,5 +44,21 @@ variable "allowed_services" {
     # GCS→BQ 로그 적재 (자회사 log-analytics 모듈의 Data Transfer Service).
     # 누락 시 transfer config 생성이 403 "resource usage restriction violated".
     "is:bigquerydatatransfer.googleapis.com",
+
+    # SCC + on-prem forwarder (기존 04.scc/notification-config, onprem-forwarder).
+    # ⚠️ 아래는 effective org policy(2026-06-08 실측)엔 있었으나 IaC default엔
+    #    누락돼 있던 항목 — 동기화. 빠지면 기존 forwarder(run)/notification(scc) 마비.
+    "is:securitycenter.googleapis.com",
+    "is:securitycentermanagement.googleapis.com",
+    "is:pubsub.googleapis.com",
+    "is:run.googleapis.com",
+    "is:artifactregistry.googleapis.com",
+    "is:cloudasset.googleapis.com",
+    "is:clouderrorreporting.googleapis.com",
+
+    # MA 런타임 → SCC 브리지 (04.scc/ma-runtime-findings, gen2 Cloud Function).
+    # cloudfunctions/eventarc는 effective에도 없던 신규 — 누락 시 함수 배포 403.
+    "is:cloudfunctions.googleapis.com",
+    "is:eventarc.googleapis.com",
   ]
 }
