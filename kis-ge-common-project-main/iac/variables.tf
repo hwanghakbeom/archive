@@ -251,6 +251,22 @@ variable "allowed_services" {
     "is:certificatemanager.googleapis.com",
     "is:bigquery.googleapis.com",
     "is:bigquerystorage.googleapis.com",
+    # ⚠️ main.tf가 모듈에 이 var.allowed_services를 넘기므로 실제 적용되는 건 이 목록.
+    #    (02.org-policies/service-restriction-policies/variables.tf의 default는 무시됨)
+    #    org policy에서 임의 삭제 금지 — 누락 시 해당 서비스 전체 차단(403).
+    # log-analytics DTS (GCS→BQ)
+    "is:bigquerydatatransfer.googleapis.com",
+    # SCC + on-prem forwarder (notification-config, onprem-forwarder) — 운영 중
+    "is:securitycenter.googleapis.com",
+    "is:securitycentermanagement.googleapis.com",
+    "is:pubsub.googleapis.com",
+    "is:run.googleapis.com",
+    "is:artifactregistry.googleapis.com",
+    "is:cloudasset.googleapis.com",
+    "is:clouderrorreporting.googleapis.com",
+    # MA 런타임 → SCC 브리지 (ma-runtime-findings, gen2 Cloud Function) — 신규
+    "is:cloudfunctions.googleapis.com",
+    "is:eventarc.googleapis.com",
   ]
 }
 
