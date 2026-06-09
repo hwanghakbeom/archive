@@ -91,8 +91,18 @@ def handle(cloud_event):
         return
 
     # 출처 자회사 프로젝트 → finding resourceName (프로젝트 번호 필수)
-    src_project_id = entry.get("resource", {}).get("labels", {}).get("project_id", "")
-    project_number = PROJECT_NUMBERS.get(src_project_id, DEFAULT_PROJECT_NUMBER)
+    # SanitizeOperation 로그 실측(2026-06-09): resource.labels에 project_id 없음.
+    #   - logName = "projects/<id>/logs/..."          → project_id (표시용)
+    #   - resource.labels.resource_container = "projects/<number>"  → 번호 (resourceName용, 직접)
+    labels = entry.get("resource", {}).get("labels", {})
+    log_name = entry.get("logName", "")
+    parts = log_name.split("/")
+    src_project_id = parts[1] if len(parts) > 1 and parts[0] == "projects" else ""
+    rc = labels.get("resource_container", "")
+    if rc.startswith("projects/"):
+        project_number = rc.split("/")[-1]
+    else:
+        project_number = PROJECT_NUMBERS.get(src_project_id, DEFAULT_PROJECT_NUMBER)
     resource_name = f"//cloudresourcemanager.googleapis.com/projects/{project_number}"
 
     op = payload.get("operationType", "UNKNOWN")
