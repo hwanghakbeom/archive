@@ -91,12 +91,15 @@ include:
 
 # target 지정 apply 공통 스크립트 (hidden job) — `script: !reference [.tf_apply, script]`.
 # DRY_RUN=true(기본) → plan만. DRY_RUN=false → plan 후 apply.
+# REFRESH=true → state를 GCP 실제와 동기화 후 plan (콘솔/외부 변경으로 인한 drift 감지).
+#   org policy·perimeter처럼 IaC 밖에서 바뀔 수 있는 리소스는 REFRESH=true 권장.
+#   기본 false(속도) — state==GCP 가정. drift 의심 시 REFRESH=true.
 .tf_apply:
   script:
     - |
       set -e
-      echo "▸ TF_TARGET=$TF_TARGET  DRY_RUN=$DRY_RUN"
-      terraform plan -input=false -refresh=false -target="$TF_TARGET" -out=tfplan.binary
+      echo "▸ TF_TARGET=$TF_TARGET  DRY_RUN=$DRY_RUN  REFRESH=${REFRESH:-false}"
+      terraform plan -input=false -refresh=${REFRESH:-false} -target="$TF_TARGET" -out=tfplan.binary
       if [ "$DRY_RUN" != "true" ]; then
         echo "▸ DRY_RUN=false — apply 실행"
         terraform apply -input=false -auto-approve tfplan.binary
