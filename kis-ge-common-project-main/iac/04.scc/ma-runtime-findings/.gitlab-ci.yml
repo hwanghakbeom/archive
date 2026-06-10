@@ -2,15 +2,22 @@
 # MA 런타임 탐지 → SCC findings 브리지 (topic + Cloud Function + SCC Source).
 # 전제: SCC Premium tier 활성(enable_phase6 전제와 동일) + apply-services 선행(API 5종).
 # 적용 후 자회사 stack의 apply-ma-detections-sink를 각 SUBSIDIARY로 실행해야 ③이 연결됨.
-apply-ma-runtime-findings:
+#
+# plan → apply 다운스트림: plan-ma-runtime-findings(자동, artifact) → apply-...(needs, 수동).
+.ma_rf_rules: &ma_rf_rules
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  - if: '$CI_PIPELINE_SOURCE == "web"'
+
+plan-ma-runtime-findings:
+  extends: .tf_plan
   stage: scc
-  extends: .tf_template
   variables:
-    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
     TF_TARGET: module.ma_runtime_findings
-  script:
-    - !reference [.tf_apply, script]
-  when: manual
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'
+  rules: *ma_rf_rules
+
+apply-ma-runtime-findings:
+  extends: .tf_apply_saved
+  stage: scc
+  needs:
+    - plan-ma-runtime-findings
+  rules: *ma_rf_rules

@@ -1,17 +1,22 @@
 # CI: 04.scc/notification-config (모듈 디렉토리 내 정의)
-.main_rules: &main_rules
+# SCC findings → PubSub notification config. 단순 리소스 → plan/apply 분리(saved plan).
+.scc_notif_rules: &scc_notif_rules
   - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   - if: '$CI_PIPELINE_SOURCE == "web"'
 
-apply-scc-notifications:
+plan-scc-notifications:
+  extends: .tf_plan
   stage: scc
-  extends: .tf_template
   variables:
-    DRY_RUN: "true"   # 기본 dry-run(plan). 이 줄 주석처리(또는 "false")하면 apply
     TF_TARGET: module.scc_notifications
-  script: !reference [.tf_apply, script]
-  when: manual
-  rules: *main_rules
+  rules: *scc_notif_rules
 
-# SCC On-prem Forwarder — VPC/NAT/고정IP/AR repo/Cloud Run Job/Scheduler/Secret.
-# refresh 활성화 필요(computed service.uri) → tf_apply(-refresh=false) 대신 인라인.
+apply-scc-notifications:
+  extends: .tf_apply_saved
+  stage: scc
+  needs:
+    - plan-scc-notifications
+  rules: *scc_notif_rules
+
+# SCC On-prem Forwarder — onprem-forwarder/.gitlab-ci.yml 참조.
+# Cloud Run computed uri 때문에 plan/apply 분리 대신 통합 apply(REFRESH) 유지.

@@ -106,3 +106,34 @@ include:
       else
         echo "▸ DRY_RUN=true(기본) — plan만 수행. 적용하려면 DRY_RUN 주석처리 또는 DRY_RUN=false."
       fi
+
+# ============================================================
+# plan → apply 다운스트림 템플릿 (인프라·앱 모듈용, saved plan)
+# ============================================================
+# 안정적 리소스(03.observability, 04.scc의 단순 모듈)는 plan과 apply를 분리:
+#   plan-<x>:  init + plan -out=tfplan.binary → artifact 저장 (검토용, 자동)
+#   apply-<x>: needs:[plan-<x>] → 저장된 plan을 그대로 apply (plan 재실행 없음, 수동)
+# 장점: "검토한 그 plan"만 정확히 적용 (DRY_RUN 토글보다 명확한 승인 게이트).
+# ⚠️ computed 값(Cloud Run uri 등)·외부변경 잦은 정책류는 saved plan이 stale 나므로
+#    이 패턴 대신 .tf_apply(REFRESH=true 자체 plan) 통합 방식 유지.
+.tf_plan:
+  extends: .tf_template
+  script:
+    - |
+      set -e
+      echo "▸ PLAN TF_TARGET=$TF_TARGET  REFRESH=${REFRESH:-false}"
+      terraform plan -input=false -refresh=${REFRESH:-false} -target="$TF_TARGET" -out=tfplan.binary
+  artifacts:
+    paths:
+      - iac/tfplan.binary
+    expire_in: 3 days
+
+.tf_apply_saved:
+  extends: .tf_template
+  script:
+    - |
+      set -e
+      test -f tfplan.binary || { echo "❌ 저장된 plan(tfplan.binary) 없음 — plan job artifact 확인"; exit 1; }
+      echo "▸ APPLY (saved plan, plan 재실행 없음)"
+      terraform apply -input=false -auto-approve tfplan.binary
+  when: manual
