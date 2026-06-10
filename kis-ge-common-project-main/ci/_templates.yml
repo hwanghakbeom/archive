@@ -1,0 +1,74 @@
+# 공통 템플릿 — 부모/자식(child) 파이프라인 양쪽이 include.
+# variables / default / cache + hidden job(.tf_template/.tf_apply/.tf_plan/.tf_apply_saved).
+# child pipeline은 부모와 독립 config라 이 파일을 별도 include해야 동일 환경 확보.
+
+variables:
+  TF_VERSION: "1.14.6"
+  TF_ROOT: iac
+  TF_STATE_BUCKET: kis-gemini-common-prod-tfstate
+  TF_STATE_PREFIX: lzone/org
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  CHECKPOINT_DISABLE: "1"
+  TF_PLUGIN_CACHE_DIR: "$CI_PROJECT_DIR/.tf-plugin-cache"
+
+default:
+  image: 467878288214.dkr.ecr.ap-northeast-2.amazonaws.com/azure-cli:terraform-v1.14.6
+  tags:
+    - docker
+
+cache:
+  key: tf-providers-$TF_VERSION
+  paths:
+    - .tf-plugin-cache
+
+# GCS backend init 공통 (extends 대상)
+.tf_template:
+  resource_group: tfstate
+  needs: []
+  before_script:
+    - mkdir -p "$TF_PLUGIN_CACHE_DIR"
+    - export GOOGLE_OAUTH_ACCESS_TOKEN="$(bash ci/mint-gcp-token.sh)"
+    - test -n "$GOOGLE_OAUTH_ACCESS_TOKEN" || (echo "token mint failed"; exit 1)
+    - cd $TF_ROOT
+    - cp -f terraform.tfvars.example terraform.tfvars
+    - terraform init
+        -backend-config="bucket=$TF_STATE_BUCKET"
+        -backend-config="prefix=$TF_STATE_PREFIX"
+
+# 통합 plan+apply (DRY_RUN 토글, REFRESH 옵션) — script: !reference [.tf_apply, script]
+.tf_apply:
+  script:
+    - |
+      set -e
+      echo "▸ TF_TARGET=$TF_TARGET  DRY_RUN=$DRY_RUN  REFRESH=${REFRESH:-false}"
+      terraform plan -input=false -refresh=${REFRESH:-false} -target="$TF_TARGET" -out=tfplan.binary
+      if [ "$DRY_RUN" != "true" ]; then
+        echo "▸ DRY_RUN=false — apply 실행"
+        terraform apply -input=false -auto-approve tfplan.binary
+      else
+        echo "▸ DRY_RUN=true(기본) — plan만 수행. 적용하려면 DRY_RUN 주석처리 또는 DRY_RUN=false."
+      fi
+
+# plan → apply 다운스트림 (saved plan)
+.tf_plan:
+  extends: .tf_template
+  script:
+    - |
+      set -e
+      echo "▸ PLAN TF_TARGET=$TF_TARGET  REFRESH=${REFRESH:-false}"
+      terraform plan -input=false -refresh=${REFRESH:-false} -target="$TF_TARGET" -out=tfplan.binary
+  artifacts:
+    paths:
+      - iac/tfplan.binary
+    expire_in: 3 days
+
+.tf_apply_saved:
+  extends: .tf_template
+  script:
+    - |
+      set -e
+      test -f tfplan.binary || { echo "❌ 저장된 plan(tfplan.binary) 없음 — plan job artifact 확인"; exit 1; }
+      echo "▸ APPLY (saved plan, plan 재실행 없음)"
+      terraform apply -input=false -auto-approve tfplan.binary
+  when: manual

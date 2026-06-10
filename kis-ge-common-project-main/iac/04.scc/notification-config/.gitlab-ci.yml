@@ -1,6 +1,7 @@
 # CI: 04.scc/notification-config (모듈 디렉토리 내 정의)
 # SCC findings → PubSub notification config. 단순 리소스 → plan/apply 분리(saved plan).
 .scc_notif_rules: &scc_notif_rules
+  - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
   - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
   - if: '$CI_PIPELINE_SOURCE == "web"'
 

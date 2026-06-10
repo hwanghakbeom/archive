@@ -1,56 +1,31 @@
-# 루트 파이프라인 — 공통 설정 + 모듈별 CI 파일 include.
-# 모듈별 job 정의는 ci/*.yml 로 분리. (YAML 앵커는 include 간 공유 불가 →
-# 공통 템플릿은 hidden job(.tf_template/.tf_apply) + extends/!reference 로 제공.)
+# 루트(부모) 파이프라인 — 공통 설정은 ci/_templates.yml로 분리.
+# 01~03 모듈은 이 파이프라인에서 직접, 04.scc는 child 파이프라인(trigger)으로 분리.
 stages:
-  - bootstrap      # 1회성: state bucket 생성 + SA 검증
+  - bootstrap
   - validate
   - plan
-  - vpc-sc          # 01.access-context-manager/* — Access Policy
-  - org-policies    # 02.org-policies/*           — storage / cmek / location / service / iam / domain
-  - observability   # 03.observability/*          — aggregated-log-sink + org-audit-config + ge-log-analytics
-  - scc             # 04.scc/*                    — SCC tier 게이트 + notification config + forwarder
-  - apply           # 전체/타깃 apply (plan job과 독립 실행 가능한 generic apply)
-  - verify          # 전체 plan no-op
-
-variables:
-  TF_VERSION: "1.14.6"
-  TF_ROOT: iac
-  TF_STATE_BUCKET: kis-gemini-common-prod-tfstate
-  TF_STATE_PREFIX: lzone/org
-  TF_IN_AUTOMATION: "true"
-  TF_INPUT: "false"
-  # checkpoint-api.hashicorp.com 호출 차단 — allowlist 외이고 기능적으로 불필요
-  CHECKPOINT_DISABLE: "1"
-  # provider plugin 캐시 — job마다 google provider(~150MB) 재다운로드 방지 (속도↑)
-  TF_PLUGIN_CACHE_DIR: "$CI_PROJECT_DIR/.tf-plugin-cache"
-  # DRY_RUN은 글로벌이 아닌 각 job(variables)에 개별 정의됨(기본 "true"). 적용 시 job/Run pipeline에서 false.
-
-# provider 캐시를 job 간 공유 (init 시간 대폭 단축)
-cache:
-  key: tf-providers-$TF_VERSION
-  paths:
-    - .tf-plugin-cache
+  - vpc-sc
+  - org-policies
+  - observability
+  - scc            # 04.scc child 파이프라인 trigger
+  - apply
+  - verify
 
 workflow:
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'   # MR: validate/plan
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-    - if: '$CI_PIPELINE_SOURCE == "web"'        # "Run Pipeline" 수동 트리거도 가능
+    - if: '$CI_PIPELINE_SOURCE == "web"'
     - when: never
 
-default:
-  # Runner #159 (mTVqFd9H)에서 Docker Hub outbound 차단됨 — ECR 이미지 사용.
-  image: 467878288214.dkr.ecr.ap-northeast-2.amazonaws.com/azure-cli:terraform-v1.14.6
-  tags:
-    - docker          # runner #159 (mTVqFd9H) — docker executor
-
-# 모듈별 job 정의
 include:
-  # 스택 레벨(특정 iac 모듈에 속하지 않는 job)
+  # 공통 템플릿 (variables/default/cache/.tf_*)
+  - local: ci/_templates.yml
+  # 스택 레벨 job
   - local: ci/00-bootstrap.yml
   - local: ci/10-validate.yml
   - local: ci/90-verify.yml
-  # iac 서브모듈/모듈 디렉토리별 job
+  # 01~03 모듈 (같은 파이프라인)
   - local: iac/01.access-context-manager/access-policy/.gitlab-ci.yml
   - local: iac/01.access-context-manager/service-perimeter/.gitlab-ci.yml
   - local: iac/01.access-context-manager/.gitlab-ci.yml
@@ -64,76 +39,18 @@ include:
   - local: iac/03.observability/org-audit-config/.gitlab-ci.yml
   - local: iac/03.observability/ge-log-analytics/.gitlab-ci.yml
   - local: iac/03.observability/dlp-discovery/.gitlab-ci.yml
-  - local: iac/04.scc/notification-config/.gitlab-ci.yml
-  - local: iac/04.scc/onprem-forwarder/.gitlab-ci.yml
-  - local: iac/04.scc/ma-runtime-findings/.gitlab-ci.yml
-  - local: iac/04.scc/.gitlab-ci.yml
-
-# ------------------------------------------------------------
-# 공통 템플릿 (hidden job) — GCS backend init.
-# include된 파일의 job들이 `extends: .tf_template` 로 상속.
-# (앵커가 아니라 hidden job이라 include 경계를 넘어 동작함)
-# ------------------------------------------------------------
-.tf_template:
-  resource_group: tfstate   # 같은 state 동시 접근 lock 충돌(412) 방지 — 직렬화
-  needs: []                 # stage 순서 무시, 개별 job 독립 수동 실행
-  before_script:
-    - mkdir -p "$TF_PLUGIN_CACHE_DIR"
-    # SA 키 → access token 직접 발급 → provider의 느린 userinfo 회피.
-    - export GOOGLE_OAUTH_ACCESS_TOKEN="$(bash ci/mint-gcp-token.sh)"
-    - test -n "$GOOGLE_OAUTH_ACCESS_TOKEN" || (echo "token mint failed"; exit 1)
-    - cd $TF_ROOT
-    # tfvars 는 gitignore → example 값으로 항상 덮어씀 (source of truth).
-    - cp -f terraform.tfvars.example terraform.tfvars
-    - terraform init
-        -backend-config="bucket=$TF_STATE_BUCKET"
-        -backend-config="prefix=$TF_STATE_PREFIX"
-
-# target 지정 apply 공통 스크립트 (hidden job) — `script: !reference [.tf_apply, script]`.
-# DRY_RUN=true(기본) → plan만. DRY_RUN=false → plan 후 apply.
-# REFRESH=true → state를 GCP 실제와 동기화 후 plan (콘솔/외부 변경으로 인한 drift 감지).
-#   org policy·perimeter처럼 IaC 밖에서 바뀔 수 있는 리소스는 REFRESH=true 권장.
-#   기본 false(속도) — state==GCP 가정. drift 의심 시 REFRESH=true.
-.tf_apply:
-  script:
-    - |
-      set -e
-      echo "▸ TF_TARGET=$TF_TARGET  DRY_RUN=$DRY_RUN  REFRESH=${REFRESH:-false}"
-      terraform plan -input=false -refresh=${REFRESH:-false} -target="$TF_TARGET" -out=tfplan.binary
-      if [ "$DRY_RUN" != "true" ]; then
-        echo "▸ DRY_RUN=false — apply 실행"
-        terraform apply -input=false -auto-approve tfplan.binary
-      else
-        echo "▸ DRY_RUN=true(기본) — plan만 수행. 적용하려면 DRY_RUN 주석처리 또는 DRY_RUN=false."
-      fi
 
 # ============================================================
-# plan → apply 다운스트림 템플릿 (인프라·앱 모듈용, saved plan)
+# 04.scc — child 파이프라인 trigger (Downstream "Child" 표시)
 # ============================================================
-# 안정적 리소스(03.observability, 04.scc의 단순 모듈)는 plan과 apply를 분리:
-#   plan-<x>:  init + plan -out=tfplan.binary → artifact 저장 (검토용, 자동)
-#   apply-<x>: needs:[plan-<x>] → 저장된 plan을 그대로 apply (plan 재실행 없음, 수동)
-# 장점: "검토한 그 plan"만 정확히 적용 (DRY_RUN 토글보다 명확한 승인 게이트).
-# ⚠️ computed 값(Cloud Run uri 등)·외부변경 잦은 정책류는 saved plan이 stale 나므로
-#    이 패턴 대신 .tf_apply(REFRESH=true 자체 plan) 통합 방식 유지.
-.tf_plan:
-  extends: .tf_template
-  script:
-    - |
-      set -e
-      echo "▸ PLAN TF_TARGET=$TF_TARGET  REFRESH=${REFRESH:-false}"
-      terraform plan -input=false -refresh=${REFRESH:-false} -target="$TF_TARGET" -out=tfplan.binary
-  artifacts:
-    paths:
-      - iac/tfplan.binary
-    expire_in: 3 days
-
-.tf_apply_saved:
-  extends: .tf_template
-  script:
-    - |
-      set -e
-      test -f tfplan.binary || { echo "❌ 저장된 plan(tfplan.binary) 없음 — plan job artifact 확인"; exit 1; }
-      echo "▸ APPLY (saved plan, plan 재실행 없음)"
-      terraform apply -input=false -auto-approve tfplan.binary
-  when: manual
+# scc 모듈군(notification/onprem-forwarder/ma-runtime-findings/tier)을
+# 별도 child 파이프라인으로 분리. 부모 그래프에 Downstream(Child)로 나타남.
+trigger-scc:
+  stage: scc
+  trigger:
+    include:
+      - local: iac/04.scc/scc-child.yml
+    strategy: depend     # child 완료까지 부모 대기 + 상태 전파
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web"'

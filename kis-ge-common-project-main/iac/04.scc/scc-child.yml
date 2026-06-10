@@ -1,0 +1,18 @@
+# 04.scc child 파이프라인 — 부모 .gitlab-ci.yml의 trigger-scc가 생성.
+# 부모와 독립 config라 공통 템플릿(_templates.yml)을 자체 include.
+stages:
+  - plan
+  - scc
+  - apply
+
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "parent_pipeline"'
+    - when: always
+
+include:
+  - local: ci/_templates.yml
+  - local: iac/04.scc/notification-config/.gitlab-ci.yml
+  - local: iac/04.scc/onprem-forwarder/.gitlab-ci.yml
+  - local: iac/04.scc/ma-runtime-findings/.gitlab-ci.yml
+  - local: iac/04.scc/.gitlab-ci.yml
