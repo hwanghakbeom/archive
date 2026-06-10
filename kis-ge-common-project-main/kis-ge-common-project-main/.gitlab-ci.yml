@@ -1,0 +1,6 @@
+# CI 진입 파일 — ci_config_path가 "kis-ge-common-project-main/.gitlab-ci.yml"로
+# 설정돼 있어, 실제 설정이 담긴 repo 루트 .gitlab-ci.yml을 include로 끌어온다.
+# (include local 경로는 repo 루트 기준 → ci/·iac/ 의 모듈 CI 파일까지 정상 로드)
+# 근본 해결은 GitLab Settings의 CI/CD configuration file을 ".gitlab-ci.yml"로 바꾸는 것.
+include:
+  - local: /.gitlab-ci.yml
